@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { SessionList } from '@/components/sessions/session-list';
 
 interface SessionInfo {
@@ -42,7 +43,9 @@ export default function SessionsPage() {
               results.push(data.data);
             }
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       setSessions(results);
@@ -64,7 +67,9 @@ export default function SessionsPage() {
       localStorage.removeItem(`mirage-admin-${sessionId}`);
       localStorage.removeItem(`mirage-config-${sessionId}`);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -80,12 +85,12 @@ export default function SessionsPage() {
         ) : sessions.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-white/40 text-sm mb-4">No sessions found on this device.</p>
-            <a
+            <Link
               href="/v/new"
               className="inline-block px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
             >
               Create New Session
-            </a>
+            </Link>
           </div>
         ) : (
           <SessionList sessions={sessions} onDelete={handleDelete} />
