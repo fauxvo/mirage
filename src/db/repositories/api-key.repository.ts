@@ -1,13 +1,15 @@
-import { eq, isNull, isNotNull } from 'drizzle-orm';
+import { eq, isNull, type InferSelectModel } from 'drizzle-orm';
 import { getDb } from '../index';
 import { apiKeys } from '../schema';
+
+export type ApiKeyRow = InferSelectModel<typeof apiKeys>;
 
 export class ApiKeyRepository {
   private get db() {
     return getDb();
   }
 
-  async create(data: { name: string; keyHash: string; keyPrefix: string; createdById: number }) {
+  async create(data: { name: string; keyHash: string; keyPrefix: string; createdById: string }) {
     const now = new Date();
     const result = await this.db
       .insert(apiKeys)
@@ -22,7 +24,7 @@ export class ApiKeyRepository {
     return result[0];
   }
 
-  async findByHash(keyHash: string) {
+  async findByHash(keyHash: string): Promise<ApiKeyRow | null> {
     const result = await this.db
       .select()
       .from(apiKeys)
@@ -31,7 +33,7 @@ export class ApiKeyRepository {
     return result[0] ?? null;
   }
 
-  async findById(id: number) {
+  async findById(id: number): Promise<ApiKeyRow | null> {
     const result = await this.db.select().from(apiKeys).where(eq(apiKeys.id, id)).limit(1);
     return result[0] ?? null;
   }

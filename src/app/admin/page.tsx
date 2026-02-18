@@ -1,4 +1,4 @@
-import { adminUserRepository } from '@/db/repositories/admin-user.repository';
+import { userRepository } from '@/db/repositories/user.repository';
 import { apiKeyRepository } from '@/db/repositories/api-key.repository';
 import { verifySession } from '@/lib/auth/session';
 import { AdminUserList } from '@/components/admin/admin-user-list';
@@ -6,10 +6,7 @@ import { ApiKeyList } from '@/components/admin/api-key-list';
 
 export default async function AdminDashboardPage() {
   const session = await verifySession();
-  const [users, keys] = await Promise.all([
-    adminUserRepository.listAll(),
-    apiKeyRepository.listAll(),
-  ]);
+  const [users, keys] = await Promise.all([userRepository.listAll(), apiKeyRepository.listAll()]);
 
   return (
     <div className="space-y-10">
@@ -19,7 +16,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <section>
-        <h2 className="text-sm font-medium text-white/60 mb-4">Admin Users</h2>
+        <h2 className="text-sm font-medium text-white/60 mb-4">Users</h2>
         <AdminUserList
           initialUsers={JSON.parse(JSON.stringify(users))}
           currentUserId={session!.userId}

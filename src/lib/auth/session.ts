@@ -2,22 +2,28 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 
-const COOKIE_NAME = 'mirage-admin-session';
+const COOKIE_NAME = 'mirage-session';
 const EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
 
-interface SessionPayload {
-  userId: number;
+export interface SessionPayload {
+  userId: string;
   username: string;
+  role: 'admin' | 'user';
   exp: number;
 }
 
-function getSecret(): Uint8Array {
-  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  if (!secret) throw new Error('ADMIN_SESSION_SECRET or ADMIN_PASSWORD must be set');
+export function getSecret(): Uint8Array {
+  const secret =
+    process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret) throw new Error('JWT_SECRET (or ADMIN_SESSION_SECRET / ADMIN_PASSWORD) must be set');
   return new TextEncoder().encode(secret);
 }
 
-export async function encrypt(payload: { userId: number; username: string }): Promise<string> {
+export async function encrypt(payload: {
+  userId: string;
+  username: string;
+  role: 'admin' | 'user';
+}): Promise<string> {
   return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -34,8 +40,12 @@ export async function decrypt(token: string): Promise<SessionPayload | null> {
   }
 }
 
-export async function createSession(userId: number, username: string): Promise<string> {
-  const token = await encrypt({ userId, username });
+export async function createSession(
+  userId: string,
+  username: string,
+  role: 'admin' | 'user'
+): Promise<string> {
+  const token = await encrypt({ userId, username, role });
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,

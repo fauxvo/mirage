@@ -2,10 +2,12 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-export default function AdminLoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,19 +18,19 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/auth/login', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, email, password }),
       });
 
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || 'Login failed');
+        setError(data.error || 'Registration failed');
         return;
       }
 
-      router.push('/admin');
+      router.push('/');
     } catch {
       setError('Network error');
     } finally {
@@ -40,8 +42,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white/90 mb-1">Mirage Admin</h1>
-          <p className="text-sm text-white/30">Sign in to manage your instance</p>
+          <h1 className="text-2xl font-bold text-white/90 mb-1">Mirage</h1>
+          <p className="text-sm text-white/30">Create your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,8 +64,26 @@ export default function AdminLoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               required
+              minLength={3}
+              maxLength={32}
               className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
-              placeholder="admin"
+              placeholder="Choose a username"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-xs font-medium text-white/40 mb-1.5">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+              placeholder="you@example.com"
             />
           </div>
 
@@ -76,10 +96,11 @@ export default function AdminLoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
+              minLength={8}
               className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
-              placeholder="Enter password"
+              placeholder="Min 8 characters"
             />
           </div>
 
@@ -88,9 +109,16 @@ export default function AdminLoginPage() {
             disabled={loading}
             className="w-full py-2.5 bg-white text-black text-sm font-medium rounded-lg hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-xs text-white/30">
+          Already have an account?{' '}
+          <Link href="/login" className="text-white/50 hover:text-white/70 transition-colors">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );

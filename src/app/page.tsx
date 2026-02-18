@@ -134,7 +134,7 @@ export default function Home() {
               href="/admin"
               className="text-xs text-white/30 hover:text-white/50 transition-colors"
             >
-              Admin
+              Dashboard
             </Link>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/lib/auth/require-admin', () => ({
+vi.mock('@/lib/auth/auth-guards', () => ({
   requireAdmin: vi.fn(),
 }));
 
@@ -17,7 +17,7 @@ vi.mock('nanoid', () => ({
 }));
 
 import { GET, POST } from './route';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireAdmin } from '@/lib/auth/auth-guards';
 import { apiKeyRepository } from '@/db/repositories/api-key.repository';
 import { errorResponse } from '@/lib/api-utils';
 
@@ -55,13 +55,13 @@ describe('GET /api/admin/api-keys', () => {
         name: 'Production',
         keyHash: 'hash',
         keyPrefix: 'mk_abcdef12',
-        createdById: 1,
+        createdById: 'user-1',
         revokedAt: null,
         createdAt: new Date(),
       },
     ];
     mockRequireAdmin.mockResolvedValue({
-      session: { userId: 1, username: 'admin', exp: 0 },
+      session: { userId: 'user-1', username: 'admin', role: 'admin', exp: 0 },
       error: null,
     });
     mockListAll.mockResolvedValue(keys);
@@ -78,7 +78,7 @@ describe('POST /api/admin/api-keys', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockRequireAdmin.mockResolvedValue({
-      session: { userId: 1, username: 'admin', exp: 0 },
+      session: { userId: 'user-1', username: 'admin', role: 'admin', exp: 0 },
       error: null,
     });
   });
@@ -113,7 +113,7 @@ describe('POST /api/admin/api-keys', () => {
       name: 'Production',
       keyHash: 'hash',
       keyPrefix: 'mk_abcdefgh',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: null,
       createdAt: new Date(),
     });

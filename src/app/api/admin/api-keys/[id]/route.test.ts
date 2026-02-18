@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/lib/auth/require-admin', () => ({
+vi.mock('@/lib/auth/auth-guards', () => ({
   requireAdmin: vi.fn(),
 }));
 
@@ -13,7 +13,7 @@ vi.mock('@/db/repositories/api-key.repository', () => ({
 }));
 
 import { DELETE } from './route';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireAdmin } from '@/lib/auth/auth-guards';
 import { apiKeyRepository } from '@/db/repositories/api-key.repository';
 import { errorResponse } from '@/lib/api-utils';
 
@@ -32,7 +32,7 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockRequireAdmin.mockResolvedValue({
-      session: { userId: 1, username: 'admin', exp: 0 },
+      session: { userId: 'user-1', username: 'admin', role: 'admin', exp: 0 },
       error: null,
     });
   });
@@ -69,7 +69,7 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: new Date(),
       createdAt: new Date(),
     });
@@ -86,7 +86,7 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: null,
       createdAt: new Date(),
     });

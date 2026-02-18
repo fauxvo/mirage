@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireAdmin } from '@/lib/auth/auth-guards';
 import { apiKeyRepository } from '@/db/repositories/api-key.repository';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
