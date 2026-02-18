@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ensureAdminSeeded } from '@/lib/auth/seed';
 import { verifySession } from '@/lib/auth/session';
 import { AdminLogoutButton } from '@/components/admin/admin-logout-button';
@@ -7,9 +8,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await ensureAdminSeeded();
   const session = await verifySession();
 
-  // Login page renders without the admin chrome
   if (!session) {
-    return <>{children}</>;
+    redirect('/login?redirect=/admin');
+  }
+
+  if (session.role !== 'admin') {
+    redirect('/');
   }
 
   return (

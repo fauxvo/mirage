@@ -71,7 +71,7 @@ describe('validateApiKey', () => {
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: null,
       createdAt: new Date(),
     });
@@ -86,7 +86,7 @@ describe('validateApiKey', () => {
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: new Date(),
       createdAt: new Date(),
     });
@@ -110,7 +110,7 @@ describe('validateApiKey', () => {
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
-      createdById: 1,
+      createdById: 'user-1',
       revokedAt: null,
       createdAt: new Date(),
     });

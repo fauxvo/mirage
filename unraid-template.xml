@@ -17,9 +17,12 @@
   <Config Name="Web UI Port" Target="4444" Default="4444" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">4444</Config>
   <Config Name="Data" Target="/app/data" Default="/mnt/user/appdata/mirage" Mode="rw" Description="Database and config storage" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/mirage</Config>
   <Config Name="API Key" Target="MIRAGE_API_KEY" Default="" Mode="" Description="Optional API key for session creation (legacy fallback)" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="JWT Secret" Target="JWT_SECRET" Default="" Mode="" Description="JWT signing secret (required in production, falls back to ADMIN_PASSWORD)" Type="Variable" Display="always" Required="false" Mask="true"/>
   <Config Name="Admin Username" Target="ADMIN_USERNAME" Default="admin" Mode="" Description="Initial admin username (first-time setup)" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Admin Email" Target="ADMIN_EMAIL" Default="" Mode="" Description="Initial admin email address (required for first-time setup)" Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="Admin Password" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Initial admin password (min 8 chars, first-time setup)" Type="Variable" Display="always" Required="false" Mask="true"/>
-  <Config Name="Session Secret" Target="ADMIN_SESSION_SECRET" Default="" Mode="" Description="JWT signing secret for admin sessions (optional, falls back to admin password)" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Allow Registration" Target="ALLOW_REGISTRATION" Default="true" Mode="" Description="Set to 'false' to disable public user registration" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+  <Config Name="Session Secret (Legacy)" Target="ADMIN_SESSION_SECRET" Default="" Mode="" Description="Legacy JWT fallback (use JWT_SECRET instead)" Type="Variable" Display="advanced" Required="false" Mask="true"/>
   <Config Name="R2/S3 Bucket" Target="S3_BUCKET" Default="" Mode="" Description="R2 or S3 bucket name for texture storage (optional — run scripts/setup-r2.sh for guided setup)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="R2/S3 Region" Target="S3_REGION" Default="auto" Mode="" Description="Use 'auto' for Cloudflare R2, or a region for AWS S3" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="R2/S3 Endpoint" Target="S3_ENDPOINT" Default="" Mode="" Description="R2: https://ACCOUNT_ID.r2.cloudflarestorage.com" Type="Variable" Display="advanced" Required="false" Mask="false"/>

@@ -1,9 +1,13 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-export const adminUsers = sqliteTable('admin_users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
   username: text('username').notNull().unique(),
+  email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
+  role: text('role', { enum: ['admin', 'user'] })
+    .notNull()
+    .default('user'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

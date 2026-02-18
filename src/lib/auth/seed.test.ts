@@ -4,18 +4,22 @@ vi.mock('bcryptjs', () => ({
   hash: vi.fn().mockResolvedValue('$2a$12$hashed'),
 }));
 
-vi.mock('@/db/repositories/admin-user.repository', () => ({
-  adminUserRepository: {
-    count: vi.fn(),
+vi.mock('nanoid', () => ({
+  nanoid: vi.fn().mockReturnValue('mock-nanoid-id-16'),
+}));
+
+vi.mock('@/db/repositories/user.repository', () => ({
+  userRepository: {
+    countAdmins: vi.fn(),
     create: vi.fn(),
   },
 }));
 
 import { hash } from 'bcryptjs';
-import { adminUserRepository } from '@/db/repositories/admin-user.repository';
+import { userRepository } from '@/db/repositories/user.repository';
 
-const mockCount = vi.mocked(adminUserRepository.count);
-const mockCreate = vi.mocked(adminUserRepository.create);
+const mockCountAdmins = vi.mocked(userRepository.countAdmins);
+const mockCreate = vi.mocked(userRepository.create);
 const mockHash = vi.mocked(hash);
 
 describe('ensureAdminSeeded', () => {
@@ -24,12 +28,13 @@ describe('ensureAdminSeeded', () => {
     vi.resetModules();
     vi.stubEnv('ADMIN_USERNAME', '');
     vi.stubEnv('ADMIN_PASSWORD', '');
+    vi.stubEnv('ADMIN_EMAIL', '');
     // Restore mock return value after clearAllMocks
     mockHash.mockResolvedValue('$2a$12$hashed' as never);
   });
 
   it('does nothing if admin users already exist', async () => {
-    mockCount.mockResolvedValue(1);
+    mockCountAdmins.mockResolvedValue(1);
 
     const { ensureAdminSeeded } = await import('./seed');
     await ensureAdminSeeded();
@@ -38,7 +43,7 @@ describe('ensureAdminSeeded', () => {
   });
 
   it('does nothing if env vars are not set', async () => {
-    mockCount.mockResolvedValue(0);
+    mockCountAdmins.mockResolvedValue(0);
 
     const { ensureAdminSeeded } = await import('./seed');
     await ensureAdminSeeded();
@@ -47,9 +52,10 @@ describe('ensureAdminSeeded', () => {
   });
 
   it('does nothing if password is too short', async () => {
-    mockCount.mockResolvedValue(0);
+    mockCountAdmins.mockResolvedValue(0);
     vi.stubEnv('ADMIN_USERNAME', 'admin');
     vi.stubEnv('ADMIN_PASSWORD', 'short');
+    vi.stubEnv('ADMIN_EMAIL', 'admin@test.com');
 
     const { ensureAdminSeeded } = await import('./seed');
     await ensureAdminSeeded();
@@ -57,14 +63,28 @@ describe('ensureAdminSeeded', () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('creates admin user when env vars set and no users exist', async () => {
-    mockCount.mockResolvedValue(0);
+  it('does nothing if email is not set', async () => {
+    mockCountAdmins.mockResolvedValue(0);
     vi.stubEnv('ADMIN_USERNAME', 'admin');
     vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
+
+    const { ensureAdminSeeded } = await import('./seed');
+    await ensureAdminSeeded();
+
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('creates admin user when env vars set and no admins exist', async () => {
+    mockCountAdmins.mockResolvedValue(0);
+    vi.stubEnv('ADMIN_USERNAME', 'admin');
+    vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
+    vi.stubEnv('ADMIN_EMAIL', 'admin@test.com');
     mockCreate.mockResolvedValue({
-      id: 1,
+      id: 'mock-nanoid-id-16',
       username: 'admin',
+      email: 'admin@test.com',
       passwordHash: '$2a$12$hashed',
+      role: 'admin',
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -73,8 +93,33 @@ describe('ensureAdminSeeded', () => {
     await ensureAdminSeeded();
 
     expect(mockCreate).toHaveBeenCalledWith({
+      id: 'mock-nanoid-id-16',
       username: 'admin',
+      email: 'admin@test.com',
       passwordHash: '$2a$12$hashed',
+      role: 'admin',
     });
+  });
+
+  it('defaults username to admin when ADMIN_USERNAME not set', async () => {
+    mockCountAdmins.mockResolvedValue(0);
+    vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
+    vi.stubEnv('ADMIN_EMAIL', 'admin@test.com');
+    mockCreate.mockResolvedValue({
+      id: 'mock-nanoid-id-16',
+      username: 'admin',
+      email: 'admin@test.com',
+      passwordHash: '$2a$12$hashed',
+      role: 'admin',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const { ensureAdminSeeded } = await import('./seed');
+    await ensureAdminSeeded();
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'admin' })
+    );
   });
 });

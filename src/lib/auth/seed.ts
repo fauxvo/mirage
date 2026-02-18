@@ -1,5 +1,6 @@
+import { nanoid } from 'nanoid';
 import { hash } from 'bcryptjs';
-import { adminUserRepository } from '@/db/repositories/admin-user.repository';
+import { userRepository } from '@/db/repositories/user.repository';
 
 let seeded = false;
 
@@ -7,15 +8,16 @@ export async function ensureAdminSeeded(): Promise<void> {
   if (seeded) return;
   seeded = true;
 
-  const count = await adminUserRepository.count();
-  if (count > 0) return;
+  const adminCount = await userRepository.countAdmins();
+  if (adminCount > 0) return;
 
-  const username = process.env.ADMIN_USERNAME;
+  const username = process.env.ADMIN_USERNAME || 'admin';
   const password = process.env.ADMIN_PASSWORD;
+  const email = process.env.ADMIN_EMAIL;
 
-  if (!username || !password) {
+  if (!password || !email) {
     console.warn(
-      '[mirage] No admin users exist and ADMIN_USERNAME/ADMIN_PASSWORD not set. ' +
+      '[mirage] No admin users exist and ADMIN_PASSWORD/ADMIN_EMAIL not set. ' +
         'Set these env vars to create the initial admin account.'
     );
     return;
@@ -27,6 +29,12 @@ export async function ensureAdminSeeded(): Promise<void> {
   }
 
   const passwordHash = await hash(password, 12);
-  await adminUserRepository.create({ username, passwordHash });
+  await userRepository.create({
+    id: nanoid(16),
+    username,
+    email,
+    passwordHash,
+    role: 'admin',
+  });
   console.log(`[mirage] Seeded initial admin user: ${username}`);
 }

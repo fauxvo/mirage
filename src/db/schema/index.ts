@@ -1,3 +1,3 @@
 export { sessions } from './sessions';
-export { adminUsers } from './admin-users';
+export { users } from './users';
 export { apiKeys } from './api-keys';
