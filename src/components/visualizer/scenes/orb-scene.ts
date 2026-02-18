@@ -187,7 +187,8 @@ const METADATA: SceneRegistration = {
   name: 'Orb',
   description: 'Noise-displaced glowing sphere with fresnel glow',
   category: 'abstract',
-  audioDescription: 'Bass drives spike amplitude, mids control noise frequency, highs intensify fresnel glow',
+  audioDescription:
+    'Bass drives spike amplitude, mids control noise frequency, highs intensify fresnel glow',
   params: [],
 };
 

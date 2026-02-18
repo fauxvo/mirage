@@ -178,14 +178,10 @@ describe('POST /api/auth/register', () => {
       updatedAt: new Date(),
     });
 
-    const res = await POST(
-      makeRequest({ ...validBody, email: 'New@Test.COM' })
-    );
+    const res = await POST(makeRequest({ ...validBody, email: 'New@Test.COM' }));
     expect(res.status).toBe(201);
     expect(mockFindByEmail).toHaveBeenCalledWith('new@test.com');
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'new@test.com' })
-    );
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ email: 'new@test.com' }));
   });
 
   it('creates user and sets session on success', async () => {

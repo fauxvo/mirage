@@ -43,3 +43,6 @@ drizzle/meta/
 
 # test
 coverage/
+
+# playwright mcp
+.playwright-mcp/

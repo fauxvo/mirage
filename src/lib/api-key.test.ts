@@ -23,101 +23,102 @@ function makeRequest(headers: Record<string, string> = {}): NextRequest {
 describe('validateApiKey', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.stubEnv('MIRAGE_API_KEY', '');
   });
 
   it('allows open access when no auth is configured', async () => {
     mockHasActiveKeys.mockResolvedValue(false);
 
     const result = await validateApiKey(makeRequest());
-    expect(result).toBe(true);
-  });
-
-  it('rejects when no key provided but env key is configured', async () => {
-    vi.stubEnv('MIRAGE_API_KEY', 'env-secret');
-
-    const result = await validateApiKey(makeRequest());
-    expect(result).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.apiKey).toBeNull();
   });
 
   it('rejects when no key provided but DB keys exist', async () => {
     mockHasActiveKeys.mockResolvedValue(true);
 
     const result = await validateApiKey(makeRequest());
-    expect(result).toBe(false);
-  });
-
-  it('accepts valid env key via x-api-key header', async () => {
-    vi.stubEnv('MIRAGE_API_KEY', 'env-secret');
-    mockFindByHash.mockResolvedValue(null);
-
-    const result = await validateApiKey(makeRequest({ 'x-api-key': 'env-secret' }));
-    expect(result).toBe(true);
-  });
-
-  it('accepts valid env key via Bearer header', async () => {
-    vi.stubEnv('MIRAGE_API_KEY', 'env-secret');
-    mockFindByHash.mockResolvedValue(null);
-
-    const result = await validateApiKey(
-      makeRequest({ authorization: 'Bearer env-secret' })
-    );
-    expect(result).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.apiKey).toBeNull();
   });
 
   it('accepts valid DB key via x-api-key header', async () => {
-    mockFindByHash.mockResolvedValue({
-      id: 1,
+    const dbKey = {
+      id: 'key-abc123',
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: null,
       createdAt: new Date(),
-    });
+    };
+    mockFindByHash.mockResolvedValue(dbKey);
 
     const result = await validateApiKey(makeRequest({ 'x-api-key': 'mk_some_key' }));
-    expect(result).toBe(true);
+    expect(result.valid).toBe(true);
+    expect(result.apiKey).toEqual(dbKey);
+  });
+
+  it('accepts valid DB key via Bearer header', async () => {
+    const dbKey = {
+      id: 'key-abc123',
+      name: 'test',
+      keyHash: 'hash',
+      keyPrefix: 'mk_abc',
+      createdById: 'user-1',
+      lastUsedAt: null,
+      revokedAt: null,
+      createdAt: new Date(),
+    };
+    mockFindByHash.mockResolvedValue(dbKey);
+
+    const result = await validateApiKey(makeRequest({ authorization: 'Bearer mk_some_key' }));
+    expect(result.valid).toBe(true);
+    expect(result.apiKey).toEqual(dbKey);
   });
 
   it('rejects revoked DB key', async () => {
     mockFindByHash.mockResolvedValue({
-      id: 1,
+      id: 'key-abc123',
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: new Date(),
       createdAt: new Date(),
     });
 
     const result = await validateApiKey(makeRequest({ 'x-api-key': 'mk_some_key' }));
-    expect(result).toBe(false);
+    expect(result.valid).toBe(false);
+    expect(result.apiKey).toBeNull();
   });
 
-  it('rejects invalid key when both DB and env are configured', async () => {
-    vi.stubEnv('MIRAGE_API_KEY', 'env-secret');
+  it('rejects invalid key when DB keys exist', async () => {
     mockFindByHash.mockResolvedValue(null);
 
     const result = await validateApiKey(makeRequest({ 'x-api-key': 'wrong-key' }));
-    expect(result).toBe(false);
+    expect(result.valid).toBe(false);
+    expect(result.apiKey).toBeNull();
   });
 
-  it('DB key takes priority over env key check', async () => {
-    vi.stubEnv('MIRAGE_API_KEY', 'env-secret');
-    mockFindByHash.mockResolvedValue({
-      id: 1,
-      name: 'test',
+  it('returns the matched apiKey row for valid keys', async () => {
+    const dbKey = {
+      id: 'key-abc123',
+      name: 'Production',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: null,
       createdAt: new Date(),
-    });
+    };
+    mockFindByHash.mockResolvedValue(dbKey);
 
     const result = await validateApiKey(makeRequest({ 'x-api-key': 'mk_db_key' }));
-    expect(result).toBe(true);
-    // findByHash was called, meaning DB is checked first
+    expect(result.valid).toBe(true);
+    expect(result.apiKey?.id).toBe('key-abc123');
+    expect(result.apiKey?.name).toBe('Production');
     expect(mockFindByHash).toHaveBeenCalled();
   });
 });

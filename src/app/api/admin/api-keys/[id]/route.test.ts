@@ -43,21 +43,14 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
       error: errorResponse('Authentication required', 401),
     });
 
-    const res = await callDelete('1');
+    const res = await callDelete('key-abc123');
     expect(res.status).toBe(401);
-  });
-
-  it('returns 400 for invalid ID', async () => {
-    const res = await callDelete('abc');
-    const data = await res.json();
-    expect(res.status).toBe(400);
-    expect(data.error).toBe('Invalid key ID');
   });
 
   it('returns 404 when key not found', async () => {
     mockFindById.mockResolvedValue(null);
 
-    const res = await callDelete('999');
+    const res = await callDelete('key-nonexistent');
     const data = await res.json();
     expect(res.status).toBe(404);
     expect(data.error).toBe('API key not found');
@@ -65,16 +58,17 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
 
   it('returns 400 when key already revoked', async () => {
     mockFindById.mockResolvedValue({
-      id: 1,
+      id: 'key-abc123',
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: new Date(),
       createdAt: new Date(),
     });
 
-    const res = await callDelete('1');
+    const res = await callDelete('key-abc123');
     const data = await res.json();
     expect(res.status).toBe(400);
     expect(data.error).toBe('API key already revoked');
@@ -82,20 +76,21 @@ describe('DELETE /api/admin/api-keys/[id]', () => {
 
   it('revokes key successfully', async () => {
     mockFindById.mockResolvedValue({
-      id: 1,
+      id: 'key-abc123',
       name: 'test',
       keyHash: 'hash',
       keyPrefix: 'mk_abc',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: null,
       createdAt: new Date(),
     });
     mockRevoke.mockResolvedValue(undefined);
 
-    const res = await callDelete('1');
+    const res = await callDelete('key-abc123');
     const data = await res.json();
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockRevoke).toHaveBeenCalledWith(1);
+    expect(mockRevoke).toHaveBeenCalledWith('key-abc123');
   });
 });

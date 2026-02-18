@@ -1,21 +1,22 @@
 export interface AdminUser {
-  id: number;
+  id: string;
   username: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ApiKey {
-  id: number;
+  id: string;
   name: string;
   keyPrefix: string;
-  createdById: number | null;
+  createdById: string | null;
+  lastUsedAt: Date | null;
   revokedAt: Date | null;
   createdAt: Date;
 }
 
 export interface ApiKeyCreateResult {
-  id: number;
+  id: string;
   name: string;
   keyPrefix: string;
   rawKey: string;

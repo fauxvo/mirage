@@ -26,7 +26,13 @@ export function SessionList({ sessions, onDelete }: SessionListProps) {
   );
 }
 
-function SessionCard({ session, onDelete }: { session: SessionInfo; onDelete: (id: string) => void }) {
+function SessionCard({
+  session,
+  onDelete,
+}: {
+  session: SessionInfo;
+  onDelete: (id: string) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const sceneName = (session.config as Record<string, string>).scene || 'Unknown';

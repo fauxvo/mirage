@@ -155,7 +155,17 @@ const METADATA: SceneRegistration = {
   description: 'Falling code rain with cascading glyphs',
   category: 'immersive',
   audioDescription: 'Bass controls fall speed, mids adjust glyph density, highs cascade brightness',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('matrix', (scene, config) => new MatrixScene(scene, config), METADATA);

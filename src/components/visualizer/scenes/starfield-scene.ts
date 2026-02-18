@@ -161,7 +161,17 @@ const METADATA: SceneRegistration = {
   description: 'Warp-speed star tunnel fly-through',
   category: 'cosmic',
   audioDescription: 'Bass boosts speed, mids increase star density, highs extend streak length',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('starfield', (scene, config) => new StarfieldScene(scene, config), METADATA);

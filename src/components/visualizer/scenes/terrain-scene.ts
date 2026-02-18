@@ -172,7 +172,8 @@ const METADATA: SceneRegistration = {
   name: 'Terrain',
   description: 'Procedural landscape with layered noise heightmap',
   category: 'immersive',
-  audioDescription: 'Bass controls terrain amplitude, mids scroll the landscape, highs add detail frequency',
+  audioDescription:
+    'Bass controls terrain amplitude, mids scroll the landscape, highs add detail frequency',
   params: [{ key: 'wireframe', label: 'Wireframe', type: 'toggle', default: false }],
 };
 

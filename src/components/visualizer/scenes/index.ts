@@ -27,5 +27,10 @@ import './voronoi-scene';
 import './vortex-scene';
 import './waveform-scene';
 
-export { createScene, getAvailableScenes, getSceneMetadata, getAllSceneMetadata } from './scene-registry';
+export {
+  createScene,
+  getAvailableScenes,
+  getSceneMetadata,
+  getAllSceneMetadata,
+} from './scene-registry';
 export type { SceneHandler, SceneParamDef, SceneRegistration } from './types';

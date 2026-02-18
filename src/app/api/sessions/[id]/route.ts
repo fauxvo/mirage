@@ -4,10 +4,7 @@ import { UpdateSessionSchema } from '@/lib/schemas';
 import { validateAdminToken } from '@/lib/creator-token';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await sessionRepository.findById(id);
   if (!session) {
@@ -23,10 +20,7 @@ export async function GET(
   });
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await sessionRepository.findById(id);
   if (!session) {

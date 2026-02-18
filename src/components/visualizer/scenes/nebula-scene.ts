@@ -167,7 +167,17 @@ const METADATA: SceneRegistration = {
   description: 'Volumetric cloud and nebula particles',
   category: 'organic',
   audioDescription: 'Bass expands the cloud, mids cycle colors, highs boost brightness',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('nebula', (scene, config) => new NebulaScene(scene, config), METADATA);

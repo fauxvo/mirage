@@ -166,7 +166,17 @@ const METADATA: SceneRegistration = {
   description: 'Spiral galaxy with dust lanes',
   category: 'cosmic',
   audioDescription: 'Bass spreads spiral arms, mids control rotation speed, highs brighten stars',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('galaxy', (scene, config) => new GalaxyScene(scene, config), METADATA);

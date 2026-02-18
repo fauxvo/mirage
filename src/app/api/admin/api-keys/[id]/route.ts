@@ -10,11 +10,7 @@ export async function DELETE(
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const { id: idStr } = await params;
-  const id = parseInt(idStr, 10);
-  if (isNaN(id)) {
-    return errorResponse('Invalid key ID', 400);
-  }
+  const { id } = await params;
 
   const key = await apiKeyRepository.findById(id);
   if (!key) {

@@ -4,14 +4,21 @@ import { Key } from 'lucide-react';
 import { ApiKeyList } from '@/components/admin/api-key-list';
 
 interface ApiKey {
-  id: number;
+  id: string;
   name: string;
   keyPrefix: string;
+  lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
 }
 
-export function ApiKeysSection({ initialKeys }: { initialKeys: ApiKey[] }) {
+export function ApiKeysSection({
+  initialKeys,
+  isAdmin,
+}: {
+  initialKeys: ApiKey[];
+  isAdmin: boolean;
+}) {
   return (
     <div>
       <div className="mb-8">
@@ -20,11 +27,16 @@ export function ApiKeysSection({ initialKeys }: { initialKeys: ApiKey[] }) {
           <h1 className="text-lg font-semibold text-white/90">API Keys</h1>
         </div>
         <p className="text-sm text-white/30">
-          Manage API keys for programmatic session creation and management.
+          {isAdmin
+            ? 'Manage all API keys for programmatic session creation and management.'
+            : 'Manage your API keys for programmatic session creation.'}
         </p>
       </div>
 
-      <ApiKeyList initialKeys={initialKeys} />
+      <ApiKeyList
+        initialKeys={initialKeys}
+        apiEndpoint={isAdmin ? '/api/admin/api-keys' : '/api/keys'}
+      />
     </div>
   );
 }

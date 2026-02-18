@@ -24,7 +24,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'My Sets', href: '/dashboard', icon: Layers },
-  { label: 'API Keys', href: '/dashboard/api-keys', icon: Key, adminOnly: true },
+  { label: 'API Keys', href: '/dashboard/api-keys', icon: Key },
   { label: 'Account', href: '/dashboard/account', icon: Settings },
   { label: 'Users', href: '/dashboard/users', icon: Users, adminOnly: true },
   { label: 'Usage', href: '/dashboard/usage', icon: BarChart3, adminOnly: true },

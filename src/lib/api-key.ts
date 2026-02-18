@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { apiKeyRepository } from '@/db/repositories/api-key.repository';
+import { apiKeyRepository, type ApiKeyRow } from '@/db/repositories/api-key.repository';
 
-async function hashKey(key: string): Promise<string> {
+export async function hashKey(key: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(key);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -9,37 +9,39 @@ async function hashKey(key: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+export interface ValidateApiKeyResult {
+  valid: boolean;
+  apiKey: ApiKeyRow | null;
+}
+
 /**
  * Validate API key from request headers.
- * Checks: DB-stored keys -> MIRAGE_API_KEY env var fallback -> open access if neither configured.
+ * Checks DB-stored keys only. Returns the matched key row for rate limiting/usage tracking.
+ * If no keys exist in the DB, access is open (returns valid with null apiKey).
  */
-export async function validateApiKey(request: NextRequest): Promise<boolean> {
+export async function validateApiKey(request: NextRequest): Promise<ValidateApiKeyResult> {
   const authHeader = request.headers.get('authorization');
   const apiKeyHeader = request.headers.get('x-api-key');
 
-  const providedKey = apiKeyHeader || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+  const providedKey =
+    apiKeyHeader || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
 
   if (providedKey) {
-    // Check against DB-stored keys
     const keyHash = await hashKey(providedKey);
     const dbKey = await apiKeyRepository.findByHash(keyHash);
-    if (dbKey && !dbKey.revokedAt) return true;
-
-    // Check against env var fallback
-    const envKey = process.env.MIRAGE_API_KEY;
-    if (envKey && providedKey === envKey) return true;
-
+    if (dbKey && !dbKey.revokedAt) {
+      return { valid: true, apiKey: dbKey };
+    }
     // Key was provided but didn't match anything
-    return false;
+    return { valid: false, apiKey: null };
   }
 
   // No key provided — check if any auth is configured
-  const envKey = process.env.MIRAGE_API_KEY;
-  if (envKey) return false;
-
   const hasDbKeys = await apiKeyRepository.hasActiveKeys();
-  if (hasDbKeys) return false;
+  if (hasDbKeys) {
+    return { valid: false, apiKey: null };
+  }
 
   // No auth configured at all — open access
-  return true;
+  return { valid: true, apiKey: null };
 }

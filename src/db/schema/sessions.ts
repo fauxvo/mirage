@@ -5,6 +5,10 @@ export const sessions = sqliteTable('sessions', {
   adminToken: text('admin_token').notNull(), // nanoid 32
   config: text('config').notNull().default('{}'), // JSON text
   textureUrl: text('texture_url'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });

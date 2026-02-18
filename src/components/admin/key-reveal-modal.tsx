@@ -39,7 +39,11 @@ export function KeyRevealModal({ rawKey, onClose }: { rawKey: string; onClose: (
             className="shrink-0 p-1.5 rounded text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-colors"
             title="Copy to clipboard"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
 

@@ -23,7 +23,11 @@ function lerpColor(a: string, b: string, t: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${bv.toString(16).padStart(2, '0')}`;
 }
 
-function lerpPalette(a: VisualizerColorPalette, b: VisualizerColorPalette, t: number): VisualizerColorPalette {
+function lerpPalette(
+  a: VisualizerColorPalette,
+  b: VisualizerColorPalette,
+  t: number
+): VisualizerColorPalette {
   return {
     primary: lerpColor(a.primary, b.primary, t),
     secondary: lerpColor(a.secondary, b.secondary, t),
@@ -70,7 +74,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         try {
           setConfig(JSON.parse(stored));
           return;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Try API for existing sessions
@@ -86,7 +92,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
               return;
             }
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Default config
@@ -211,7 +219,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
               },
               body: JSON.stringify({ config: newConfig }),
             });
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }, 1000);
       }
     },
@@ -275,11 +285,14 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     };
   }, [colorCycleEnabled, config, handleQuickChange]);
 
-  const handleToggleAudio = useCallback((enabled: boolean) => {
-    setAudioEnabled(enabled);
-    engineRef.current?.setAudioEnabled(enabled);
-    if (enabled) initMicAudio();
-  }, [initMicAudio]);
+  const handleToggleAudio = useCallback(
+    (enabled: boolean) => {
+      setAudioEnabled(enabled);
+      engineRef.current?.setAudioEnabled(enabled);
+      if (enabled) initMicAudio();
+    },
+    [initMicAudio]
+  );
 
   if (!config) {
     return (
@@ -290,7 +303,10 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="fixed inset-0 bg-black" style={{ cursor: controlsVisible ? 'default' : 'none' }}>
+    <div
+      className="fixed inset-0 bg-black"
+      style={{ cursor: controlsVisible ? 'default' : 'none' }}
+    >
       <canvas ref={canvasRef} className="w-full h-full" />
 
       {/* Controls overlay */}

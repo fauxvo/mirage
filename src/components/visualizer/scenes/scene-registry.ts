@@ -7,7 +7,11 @@ type SceneFactory = (scene: THREE.Scene, config: VisualizerConfig) => SceneHandl
 const registry = new Map<string, SceneFactory>();
 const metadataRegistry = new Map<string, SceneRegistration>();
 
-export function registerScene(id: string, factory: SceneFactory, metadata?: SceneRegistration): void {
+export function registerScene(
+  id: string,
+  factory: SceneFactory,
+  metadata?: SceneRegistration
+): void {
   registry.set(id, factory);
   if (metadata) {
     metadataRegistry.set(id, metadata);

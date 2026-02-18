@@ -59,16 +59,16 @@ export function HelpModal({ onClose }: HelpModalProps) {
           {section === 'overview' && (
             <HelpContent>
               <HelpParagraph>
-                Mirage is a real-time 3D music visualizer that reacts to audio from your
-                microphone. Every setting can be adjusted while the visualizer is running.
+                Mirage is a real-time 3D music visualizer that reacts to audio from your microphone.
+                Every setting can be adjusted while the visualizer is running.
               </HelpParagraph>
               <HelpParagraph>
-                Changes are saved automatically. You can share sessions via URL — viewers see
-                the same visuals but only the creator can change settings.
+                Changes are saved automatically. You can share sessions via URL — viewers see the
+                same visuals but only the creator can change settings.
               </HelpParagraph>
               <HelpItem title="Getting Started">
-                Pick a scene, choose a color preset (or make your own), then adjust sliders
-                to taste. Upload a custom image for scenes that support textures.
+                Pick a scene, choose a color preset (or make your own), then adjust sliders to
+                taste. Upload a custom image for scenes that support textures.
               </HelpItem>
             </HelpContent>
           )}
@@ -76,8 +76,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
           {section === 'scenes' && (
             <HelpContent>
               <HelpParagraph>
-                23 scenes grouped into five categories. Each has unique visual characteristics
-                and responds to audio differently.
+                23 scenes grouped into five categories. Each has unique visual characteristics and
+                responds to audio differently.
               </HelpParagraph>
               <HelpItem title="Organic">
                 Natural, flowing visuals: auroras, oceans, nebulae, lava.
@@ -99,8 +99,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 <strong> Starburst</strong> is the standard,
                 <strong> Soft</strong> has wide dreamy rays,
                 <strong> Sharp</strong> has thin retro sunburst bands,
-                <strong> Spin</strong> has full-screen rays with Y-axis texture rotation.
-                Best paired with a custom texture (logo, artwork, photo).
+                <strong> Spin</strong> has full-screen rays with Y-axis texture rotation. Best
+                paired with a custom texture (logo, artwork, photo).
               </HelpItem>
             </HelpContent>
           )}
@@ -133,8 +133,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 Controls overall speed of all animations and camera movement.
               </HelpItem>
               <HelpItem title="Per-Scene Controls">
-                Some scenes have additional controls (particle density, symmetry folds,
-                wireframe) that appear automatically when that scene is selected.
+                Some scenes have additional controls (particle density, symmetry folds, wireframe)
+                that appear automatically when that scene is selected.
               </HelpItem>
             </HelpContent>
           )}
@@ -142,8 +142,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
           {section === 'texture' && (
             <HelpContent>
               <HelpParagraph>
-                Upload a custom image (logo, artwork, photo) to be applied as a texture.
-                Images over 512KB are automatically optimized.
+                Upload a custom image (logo, artwork, photo) to be applied as a texture. Images over
+                512KB are automatically optimized.
               </HelpParagraph>
               <HelpItem title="Texture Size &amp; Opacity">
                 Adjust scale and transparency of the texture within the scene.
@@ -180,20 +180,20 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 Sessions let you save and share visualizer configurations.
               </HelpParagraph>
               <HelpItem title="Creating Sessions">
-                Sessions are created via the API (POST /api/sessions). The response includes
-                a session ID and admin token.
+                Sessions are created via the API (POST /api/sessions). The response includes a
+                session ID and admin token.
               </HelpItem>
               <HelpItem title="Sharing">
-                Share the URL /v/[session-id] with anyone. They can view but not modify the
-                session settings.
+                Share the URL /v/[session-id] with anyone. They can view but not modify the session
+                settings.
               </HelpItem>
               <HelpItem title="Admin Token">
-                The admin token is stored in your browser&apos;s localStorage. Only the token
-                holder can update or delete a session.
+                The admin token is stored in your browser&apos;s localStorage. Only the token holder
+                can update or delete a session.
               </HelpItem>
               <HelpItem title="Local Mode">
-                Visit /v/new for a local-only session that uses localStorage without creating
-                a server-side session.
+                Visit /v/new for a local-only session that uses localStorage without creating a
+                server-side session.
               </HelpItem>
             </HelpContent>
           )}

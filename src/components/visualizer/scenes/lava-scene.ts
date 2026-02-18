@@ -171,7 +171,8 @@ const METADATA: SceneRegistration = {
   name: 'Lava',
   description: 'Molten lava flow with turbulent noise',
   category: 'organic',
-  audioDescription: 'Bass drives turbulence intensity, mids shift heat color, highs crack the surface',
+  audioDescription:
+    'Bass drives turbulence intensity, mids shift heat color, highs crack the surface',
   params: [],
 };
 
