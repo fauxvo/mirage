@@ -1,0 +1,285 @@
+import * as THREE from 'three';
+import type { VisualizerConfig } from '@/types/visualizer';
+import { registerScene } from './scene-registry';
+import type { SceneRegistration } from './types';
+import { computeAnimatedOpacity } from './starburst-utils';
+
+/**
+ * Starburst Soft Scene
+ *
+ * Wide, diffused rays with a gentle gradient glow. Dreamy and ambient.
+ * Rays are fewer and broader, blending smoothly into the background.
+ * Custom texture floats centred; placeholder orb shown without one.
+ */
+
+const BURST_VERTEX = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const BURST_FRAGMENT = `
+  uniform float uTime;
+  uniform float uBass;
+  uniform float uMid;
+  uniform float uHigh;
+  uniform float uSpeed;
+  uniform float uReactivity;
+  uniform vec3 uPrimary;
+  uniform vec3 uSecondary;
+  uniform vec3 uAccent;
+  uniform vec3 uBackground;
+  uniform float uOffsetX;
+  varying vec2 vUv;
+
+  void main() {
+    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, 0.0);
+    float angle = atan(center.y, center.x);
+    float dist = length(center);
+
+    // Slow rotation
+    float rotation = uTime * uSpeed * 0.08;
+    float rayAngle = angle + rotation;
+
+    // Fewer, wider rays — smooth cosine lobes
+    float rays = 0.0;
+    rays += pow(cos(rayAngle * 3.0) * 0.5 + 0.5, 2.0);
+    rays += pow(cos(rayAngle * 5.0 + uTime * uSpeed * 0.15) * 0.5 + 0.5, 3.0) * 0.5;
+
+    // Audio: gentle influence
+    float bassPulse = 1.0 + uBass * uReactivity * 0.4;
+    float midBright = 1.0 + uMid * uReactivity * 0.3;
+
+    // Wide radial spread, hollow center
+    float outerFade = 1.0 - smoothstep(0.1 * bassPulse, 0.65 * bassPulse, dist);
+    float innerFade = smoothstep(0.0, 0.15 * bassPulse, dist);
+    float falloff = outerFade * innerFade;
+
+    float rayIntensity = rays * falloff * midBright;
+
+    // Soft gradient: primary blends to secondary over distance
+    vec3 rayColor = mix(uPrimary, uSecondary, smoothstep(0.0, 0.5, dist));
+    rayColor = mix(rayColor, uAccent, rays * 0.15);
+
+    // Composition — no harsh center
+    vec3 color = uBackground;
+    color += rayColor * rayIntensity * 0.6;
+
+    // Very gentle vignette
+    float vignette = 1.0 - smoothstep(0.4, 0.8, dist);
+    color *= 0.65 + vignette * 0.35;
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const LOGO_VERTEX = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const LOGO_FRAGMENT = `
+  uniform sampler2D uTexture;
+  uniform bool uHasTexture;
+  uniform float uBass;
+  uniform float uHigh;
+  uniform float uReactivity;
+  uniform float uOpacity;
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform vec3 uPrimary;
+  uniform vec3 uAccent;
+  varying vec2 vUv;
+
+  void main() {
+    if (uHasTexture) {
+      vec4 tex = texture2D(uTexture, vUv);
+      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      float halo = smoothstep(0.0, 0.15, edgeDist);
+      float breathe = 1.0 + uBass * uReactivity * 0.06;
+      float shimmer = 1.0 + uHigh * uReactivity * 0.1;
+      tex.rgb *= breathe * shimmer;
+      gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
+    } else {
+      vec2 center = vUv - 0.5;
+      float dist = length(center);
+      float pulse = 1.0 + uBass * uReactivity * 0.15;
+      float orb = 1.0 - smoothstep(0.0, 0.35 * pulse, dist);
+      float ring = smoothstep(0.25, 0.3, dist) * (1.0 - smoothstep(0.3, 0.35, dist));
+      float shimmer = sin(atan(center.y, center.x) * 6.0 + uTime * uSpeed * 1.5) * 0.5 + 0.5;
+      vec3 color = mix(uPrimary, uAccent, shimmer * 0.4);
+      float alpha = orb * 0.8 + ring * 0.5;
+      gl_FragColor = vec4(color * (orb + ring * 0.4), alpha);
+    }
+  }
+`;
+
+export class StarburstSoftScene {
+  private burstMesh: THREE.Mesh;
+  private burstMaterial: THREE.ShaderMaterial;
+  private logoMesh: THREE.Mesh;
+  private logoMaterial: THREE.ShaderMaterial;
+  private clock: THREE.Clock;
+  private config: VisualizerConfig;
+
+  constructor(
+    private scene: THREE.Scene,
+    config: VisualizerConfig
+  ) {
+    this.config = config;
+    this.clock = new THREE.Clock();
+    const palette = config.colorPalette;
+
+    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    this.burstMaterial = new THREE.ShaderMaterial({
+      vertexShader: BURST_VERTEX,
+      fragmentShader: BURST_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0 },
+        uBass: { value: 0 },
+        uMid: { value: 0 },
+        uHigh: { value: 0 },
+        uSpeed: { value: config.animationSpeed },
+        uReactivity: { value: config.audioReactivity },
+        uPrimary: { value: new THREE.Color(palette.primary) },
+        uSecondary: { value: new THREE.Color(palette.secondary) },
+        uAccent: { value: new THREE.Color(palette.accent) },
+        uBackground: { value: new THREE.Color(palette.background) },
+        uOffsetX: { value: config.patternOffsetX ?? 0 },
+      },
+      depthWrite: false,
+    });
+
+    this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
+    this.burstMesh.position.z = -2;
+    this.scene.add(this.burstMesh);
+
+    const logoGeo = new THREE.PlaneGeometry(3, 3);
+    this.logoMaterial = new THREE.ShaderMaterial({
+      vertexShader: LOGO_VERTEX,
+      fragmentShader: LOGO_FRAGMENT,
+      uniforms: {
+        uTexture: { value: null },
+        uHasTexture: { value: false },
+        uBass: { value: 0 },
+        uHigh: { value: 0 },
+        uReactivity: { value: config.audioReactivity },
+        uOpacity: { value: config.textureOpacity ?? 1.0 },
+        uTime: { value: 0 },
+        uSpeed: { value: config.animationSpeed },
+        uPrimary: { value: new THREE.Color(palette.primary) },
+        uAccent: { value: new THREE.Color(palette.accent) },
+      },
+      transparent: true,
+      depthWrite: false,
+    });
+
+    this.logoMesh = new THREE.Mesh(logoGeo, this.logoMaterial);
+    this.logoMesh.position.z = 0;
+    this.scene.add(this.logoMesh);
+  }
+
+  update(bass: number, mid: number, high: number): void {
+    const time = this.clock.getElapsedTime();
+    const reactivity = this.config.audioReactivity;
+
+    this.burstMaterial.uniforms.uTime.value = time;
+    this.burstMaterial.uniforms.uBass.value = bass * reactivity;
+    this.burstMaterial.uniforms.uMid.value = mid * reactivity;
+    this.burstMaterial.uniforms.uHigh.value = high * reactivity;
+
+    this.logoMaterial.uniforms.uTime.value = time;
+    this.logoMaterial.uniforms.uBass.value = bass * reactivity;
+    this.logoMaterial.uniforms.uHigh.value = high * reactivity;
+
+    // Animated texture opacity
+    const anim = this.config.textureAnimation ?? 'none';
+    const baseOpacity = this.config.textureOpacity ?? 1.0;
+    const animMul = computeAnimatedOpacity(anim, time, this.config.animationSpeed, bass);
+    this.logoMaterial.uniforms.uOpacity.value = baseOpacity * animMul;
+
+    const scale = this.config.textureScale ?? 1.0;
+    const breathe = scale * (1.0 + bass * reactivity * 0.04);
+    this.logoMesh.scale.setScalar(breathe);
+
+    const offsetX = this.config.patternOffsetX ?? 0;
+    this.logoMesh.position.x = offsetX * 4.0;
+  }
+
+  setTexture(texture: THREE.Texture | null): void {
+    this.logoMaterial.uniforms.uTexture.value = texture;
+    this.logoMaterial.uniforms.uHasTexture.value = texture !== null;
+
+    if (texture?.image) {
+      const img = texture.image as HTMLImageElement;
+      const aspect = img.width / img.height;
+      const maxSize = 3;
+      const w = aspect >= 1 ? maxSize : maxSize * aspect;
+      const h = aspect >= 1 ? maxSize / aspect : maxSize;
+      this.logoMesh.geometry.dispose();
+      this.logoMesh.geometry = new THREE.PlaneGeometry(w, h);
+    } else {
+      this.logoMesh.geometry.dispose();
+      this.logoMesh.geometry = new THREE.PlaneGeometry(3, 3);
+    }
+  }
+
+  updateConfig(config: Partial<VisualizerConfig>): void {
+    if (config.colorPalette) {
+      this.burstMaterial.uniforms.uPrimary.value.set(config.colorPalette.primary);
+      this.burstMaterial.uniforms.uSecondary.value.set(config.colorPalette.secondary);
+      this.burstMaterial.uniforms.uAccent.value.set(config.colorPalette.accent);
+      this.burstMaterial.uniforms.uBackground.value.set(config.colorPalette.background);
+      this.logoMaterial.uniforms.uPrimary.value.set(config.colorPalette.primary);
+      this.logoMaterial.uniforms.uAccent.value.set(config.colorPalette.accent);
+    }
+    if (config.animationSpeed !== undefined) {
+      this.burstMaterial.uniforms.uSpeed.value = config.animationSpeed;
+      this.logoMaterial.uniforms.uSpeed.value = config.animationSpeed;
+    }
+    if (config.audioReactivity !== undefined) {
+      this.config = { ...this.config, ...config };
+      this.burstMaterial.uniforms.uReactivity.value = config.audioReactivity;
+      this.logoMaterial.uniforms.uReactivity.value = config.audioReactivity;
+    }
+    if (
+      config.textureScale !== undefined ||
+      config.textureOpacity !== undefined ||
+      config.textureAnimation !== undefined
+    ) {
+      this.config = { ...this.config, ...config };
+    }
+    if (config.textureOpacity !== undefined && (this.config.textureAnimation ?? 'none') === 'none') {
+      this.logoMaterial.uniforms.uOpacity.value = config.textureOpacity;
+    }
+    if (config.patternOffsetX !== undefined) {
+      this.config = { ...this.config, ...config };
+      this.burstMaterial.uniforms.uOffsetX.value = config.patternOffsetX;
+    }
+  }
+
+  dispose(): void {
+    this.scene.remove(this.burstMesh);
+    this.scene.remove(this.logoMesh);
+    this.burstMesh.geometry.dispose();
+    this.burstMaterial.dispose();
+    this.logoMesh.geometry.dispose();
+    this.logoMaterial.dispose();
+  }
+}
+
+const METADATA: SceneRegistration = {
+  id: 'starburst-soft',
+  name: 'Starburst Soft',
+  description: 'Wide, diffused rays with a gentle dreamy glow',
+  category: 'abstract',
+  audioDescription: 'Bass gently widens rays, mids brighten the glow',
+  params: [],
+};
+
+registerScene('starburst-soft', (scene, config) => new StarburstSoftScene(scene, config), METADATA);

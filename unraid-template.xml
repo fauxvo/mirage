@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Mirage</Name>
+  <Repository>mirage</Repository>
+  <Registry>https://github.com/fauxvo/mirage</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/fauxvo/mirage/issues</Support>
+  <Project>https://github.com/fauxvo/mirage</Project>
+  <Overview>Real-time 3D music visualizer. Self-hosted, API-driven, shareable sessions.</Overview>
+  <Category>MediaApp:Music</Category>
+  <WebUI>http://[IP]:[PORT:4444]</WebUI>
+  <Icon>https://raw.githubusercontent.com/fauxvo/mirage/main/public/icon.png</Icon>
+  <ExtraParams/>
+  <DateInstalled/>
+  <Description>Mirage is a standalone, self-hosted web app for real-time 3D music visualization with 23 scenes, mic audio input, texture uploads, and shareable sessions.</Description>
+  <Config Name="Web UI Port" Target="4444" Default="4444" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">4444</Config>
+  <Config Name="Data" Target="/app/data" Default="/mnt/user/appdata/mirage" Mode="rw" Description="Database and config storage" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/mirage</Config>
+  <Config Name="API Key" Target="MIRAGE_API_KEY" Default="" Mode="" Description="Optional API key for session creation" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="S3 Bucket" Target="S3_BUCKET" Default="" Mode="" Description="S3 bucket for texture storage (optional)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="S3 Region" Target="S3_REGION" Default="us-east-1" Mode="" Description="S3 region" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="S3 Endpoint" Target="S3_ENDPOINT" Default="" Mode="" Description="S3-compatible endpoint (MinIO, R2)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="S3 Access Key" Target="S3_ACCESS_KEY_ID" Default="" Mode="" Description="S3 access key" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="S3 Secret Key" Target="S3_SECRET_ACCESS_KEY" Default="" Mode="" Description="S3 secret key" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="S3 Force Path Style" Target="S3_FORCE_PATH_STYLE" Default="true" Mode="" Description="Required for MinIO" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>
