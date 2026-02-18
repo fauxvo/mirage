@@ -5,20 +5,24 @@ import type { SceneRegistration } from './types';
 import { computeAnimatedOpacity } from './starburst-utils';
 
 /**
- * Starburst Scene
+ * Starburst Scene (3D Sphere)
  *
- * A centred custom texture (logo, photo, etc.) floating in front of
- * radiating starburst rays. The rays pulse with audio and slowly rotate.
- * Without a custom texture a glowing orb placeholder is shown.
+ * A centred custom texture floating in front of radiating starburst rays
+ * projected onto a sphere that wraps entirely around the camera. No black
+ * edges regardless of camera orbit/drift. The rays are computed from 3D
+ * positions using equirectangular mapping for seamless coverage.
  */
 
-// --- Starburst background (fullscreen quad with ray shader) ---
+// --- Burst background: sphere rendered from inside (BackSide) ---
 
 const BURST_VERTEX = `
-  varying vec2 vUv;
+  varying vec3 vDir;
   void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Compute direction in view space so the pattern is always centered on
+    // the camera's forward direction, regardless of camera position/orbit.
+    vec4 viewPos = modelViewMatrix * vec4(position, 1.0);
+    vDir = viewPos.xyz;
+    gl_Position = projectionMatrix * viewPos;
   }
 `;
 
@@ -35,10 +39,20 @@ const BURST_FRAGMENT = `
   uniform vec3 uBackground;
   uniform float uRayCount;
   uniform float uOffsetX;
-  varying vec2 vUv;
+  varying vec3 vDir;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, 0.0);
+    // View-space direction: in view space the camera looks along -Z,
+    // so atan(x, -z) gives 0 at screen centre. Scale 3.0 maps the
+    // 60° FOV half-angle (~0.524 rad) to ±0.5, matching the flat
+    // version's UV range so the ray pattern fills the visible screen.
+    vec3 dir = normalize(vDir);
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    vec2 center = vec2(lon, lat) / 3.14159 * 3.0;
+    center -= vec2(uOffsetX * 0.3, 0.0);
+
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -57,7 +71,7 @@ const BURST_FRAGMENT = `
     float midBright = 1.0 + uMid * uReactivity * 0.4;
     float highSharp = 1.0 + uHigh * uReactivity * 0.3;
 
-    // Radial falloff — rays fade towards edges, pulse with bass
+    // Radial falloff — rays fade towards the sides/back of the sphere
     // Hollow center: rays start fading IN from the middle
     float outerFade = 1.0 - smoothstep(0.15 * bassPulse, 0.55 * bassPulse, dist);
     float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
@@ -71,11 +85,11 @@ const BURST_FRAGMENT = `
     vec3 rayColor = mix(uPrimary, uSecondary, dist * 2.0);
     rayColor = mix(rayColor, uAccent, rays * 0.3);
 
-    // Final composition — no additive center glow
+    // Final composition — background always fills, never black
     vec3 color = uBackground;
     color += rayColor * rayIntensity * 0.8;
 
-    // Subtle vignette
+    // Subtle vignette based on spherical distance from front
     float vignette = 1.0 - smoothstep(0.3, 0.75, dist);
     color *= 0.6 + vignette * 0.4;
 
@@ -155,8 +169,9 @@ export class StarburstScene {
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    // Starburst background — oversized plane to guarantee full viewport coverage
-    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    // Starburst background — sphere rendered from inside so it wraps around
+    // the camera completely. No black edges regardless of camera angle.
+    const burstGeo = new THREE.SphereGeometry(50, 64, 32);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -174,11 +189,11 @@ export class StarburstScene {
         uRayCount: { value: 12.0 },
         uOffsetX: { value: config.patternOffsetX ?? 0 },
       },
+      side: THREE.BackSide,
       depthWrite: false,
     });
 
     this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
-    this.burstMesh.position.z = -2;
     this.scene.add(this.burstMesh);
 
     // Centre logo/texture plane — in front of starburst
@@ -304,8 +319,8 @@ export class StarburstScene {
 const METADATA: SceneRegistration = {
   id: 'starburst',
   name: 'Starburst',
-  description: 'Centred custom texture over radiating starburst rays',
-  category: 'abstract',
+  description: 'Centred texture over 3D starburst rays — no black edges with any camera mode',
+  category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],
 };

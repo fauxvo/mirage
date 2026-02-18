@@ -24,10 +24,10 @@ export function HelpModal({ onClose }: HelpModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg max-h-[85vh] bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden mx-4">
+      <div className="w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h4 className="text-white font-semibold text-base">Mirage Guide</h4>
+          <h4 className="text-white font-semibold text-lg">Mirage Guide</h4>
           <button
             onClick={onClose}
             className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
@@ -37,13 +37,13 @@ export function HelpModal({ onClose }: HelpModalProps) {
         </div>
 
         {/* Tab Bar */}
-        <div className="flex gap-0.5 px-4 pt-3 pb-1 overflow-x-auto scrollbar-none">
+        <div className="flex flex-wrap gap-1 px-5 pt-3 pb-1">
           {sections.map((s) => (
             <button
               key={s.id}
               onClick={() => setSection(s.id)}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all shrink-0',
+                'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all',
                 section === s.id
                   ? 'bg-white/15 text-white'
                   : 'text-white/40 hover:text-white/60 hover:bg-white/5'
@@ -55,7 +55,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="px-6 py-5">
           {section === 'overview' && (
             <HelpContent>
               <HelpParagraph>
@@ -95,7 +95,11 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 Full-environment: tunnels, terrain, matrix rain, vortexes.
               </HelpItem>
               <HelpItem title="Starburst Family">
-                Three starburst variants centre your custom texture over radiating rays.
+                Four starburst variants centre your custom texture over radiating rays.
+                <strong> Starburst</strong> is the standard,
+                <strong> Soft</strong> has wide dreamy rays,
+                <strong> Sharp</strong> has thin retro sunburst bands,
+                <strong> Spin</strong> has full-screen rays with Y-axis texture rotation.
                 Best paired with a custom texture (logo, artwork, photo).
               </HelpItem>
             </HelpContent>
@@ -200,7 +204,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 items={[
                   ['F', 'Toggle fullscreen'],
                   ['S', 'Toggle settings panel'],
-                  ['Esc', 'Close settings or exit fullscreen'],
+                  ['H', 'Toggle help guide'],
+                  ['Esc', 'Close settings / help or exit fullscreen'],
                   ['M', 'Toggle mic audio on/off'],
                 ]}
               />
@@ -213,28 +218,28 @@ export function HelpModal({ onClose }: HelpModalProps) {
 }
 
 function HelpContent({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-3">{children}</div>;
+  return <div className="space-y-4">{children}</div>;
 }
 
 function HelpParagraph({ children }: { children: React.ReactNode }) {
-  return <p className="text-white/50 text-xs leading-relaxed">{children}</p>;
+  return <p className="text-white/50 text-sm leading-relaxed">{children}</p>;
 }
 
 function HelpItem({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h5 className="text-white/80 text-xs font-semibold mb-0.5">{title}</h5>
-      <p className="text-white/45 text-[11px] leading-relaxed">{children}</p>
+      <h5 className="text-white/80 text-sm font-semibold mb-1">{title}</h5>
+      <p className="text-white/45 text-[13px] leading-relaxed">{children}</p>
     </div>
   );
 }
 
 function HelpList({ items }: { items: [string, string][] }) {
   return (
-    <div className="space-y-1 ml-1">
+    <div className="space-y-2 ml-1">
       {items.map(([key, desc]) => (
-        <div key={key} className="flex gap-2 text-[11px]">
-          <span className="text-white/70 font-mono font-medium shrink-0 min-w-[70px]">{key}</span>
+        <div key={key} className="flex gap-3 text-sm">
+          <span className="text-white/70 font-mono font-medium shrink-0 min-w-[80px]">{key}</span>
           <span className="text-white/40">{desc}</span>
         </div>
       ))}

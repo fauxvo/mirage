@@ -15,7 +15,7 @@ export class VisualizerEngine {
   private sceneHandler: SceneHandler | null = null;
   private analyser: AnalyserNode | null = null;
   private dataArray: Uint8Array<ArrayBuffer> | null = null;
-  private audioEnabled = true;
+  private audioEnabled = false;
   private animationFrameId: number | null = null;
   private config: VisualizerConfig;
   private cameraAngle = 0;

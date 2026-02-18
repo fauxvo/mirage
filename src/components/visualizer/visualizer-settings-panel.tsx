@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   X,
   RotateCcw,
@@ -11,12 +11,12 @@ import {
   HelpCircle,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAllSceneMetadata, getSceneMetadata } from '@/components/visualizer/scenes/scene-registry';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import { SliderControl, TextureAnimationPicker } from '@/components/settings/slider-control';
-import { HelpModal } from '@/components/settings/help-modal';
 import type { VisualizerConfig } from '@/types/visualizer';
 
 interface VisualizerSettingsPanelProps {
@@ -29,6 +29,7 @@ interface VisualizerSettingsPanelProps {
   onConfigUpdate: (config: VisualizerConfig) => void;
   onQuickChange: (changes: Partial<VisualizerConfig>) => void;
   onClose: () => void;
+  onShowHelp: () => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -52,12 +53,22 @@ export function VisualizerSettingsPanel({
   onConfigUpdate,
   onQuickChange,
   onClose,
+  onShowHelp,
 }: VisualizerSettingsPanelProps) {
   const [textureError, setTextureError] = useState<string | null>(null);
+  const [textureUploading, setTextureUploading] = useState(false);
+  const [storageAvailable, setStorageAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showHelp, setShowHelp] = useState(false);
   const [showCustomColors, setShowCustomColors] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+
+  // Check if R2/S3 storage is configured
+  useEffect(() => {
+    fetch('/api/health')
+      .then((res) => res.json())
+      .then((data) => setStorageAvailable(!!data.storageConfigured))
+      .catch(() => setStorageAvailable(false));
+  }, []);
 
   const allScenes = getAllSceneMetadata();
   const categories = [...new Set(allScenes.map((s) => s.category))];
@@ -134,6 +145,33 @@ export function VisualizerSettingsPanel({
     });
   };
 
+  const uploadToStorage = async (file: File): Promise<string> => {
+    const adminToken = sessionId ? localStorage.getItem(`mirage-admin-${sessionId}`) : null;
+    if (!sessionId || !adminToken) {
+      throw new Error('Session required for cloud upload');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'x-session-id': sessionId,
+        'x-admin-token': adminToken,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || 'Upload failed');
+    }
+
+    const data = await res.json();
+    return data.data.url;
+  };
+
   const handleTextureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -149,20 +187,29 @@ export function VisualizerSettingsPanel({
     }
 
     try {
-      // Small files (under 512KB) that are already optimized can skip processing
-      if (file.size <= MAX_OUTPUT_SIZE) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          onQuickChange({ customTextureUrl: reader.result as string });
-        };
-        reader.onerror = () => setTextureError('Failed to read file');
-        reader.readAsDataURL(file);
+      // Use R2/S3 storage when available and we have a session
+      if (storageAvailable && sessionId) {
+        setTextureUploading(true);
+        const url = await uploadToStorage(file);
+        onQuickChange({ customTextureUrl: url });
       } else {
-        const optimized = await optimizeImage(file);
-        onQuickChange({ customTextureUrl: optimized });
+        // Fall back to client-side base64 optimization
+        if (file.size <= MAX_OUTPUT_SIZE) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            onQuickChange({ customTextureUrl: reader.result as string });
+          };
+          reader.onerror = () => setTextureError('Failed to read file');
+          reader.readAsDataURL(file);
+        } else {
+          const optimized = await optimizeImage(file);
+          onQuickChange({ customTextureUrl: optimized });
+        }
       }
-    } catch {
-      setTextureError('Failed to optimize image');
+    } catch (err) {
+      setTextureError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setTextureUploading(false);
     }
 
     // Reset input so same file can be re-selected
@@ -199,7 +246,7 @@ export function VisualizerSettingsPanel({
         <h3 className="text-white font-semibold text-sm">Visualizer Settings</h3>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowHelp(true)}
+            onClick={onShowHelp}
             className="p-1 text-white/50 hover:text-white rounded transition-colors"
             title="Help"
           >
@@ -213,9 +260,6 @@ export function VisualizerSettingsPanel({
           </button>
         </div>
       </div>
-
-      {/* Help Modal */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -624,10 +668,20 @@ export function VisualizerSettingsPanel({
           ) : (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2"
+              disabled={textureUploading}
+              className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Upload className="w-4 h-4" />
-              Upload Image (logo, photo, etc.)
+              {textureUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Upload Image (logo, photo, etc.)
+                </>
+              )}
             </button>
           )}
           {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
