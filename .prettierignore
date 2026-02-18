@@ -1,0 +1,6 @@
+.claude/
+.next/
+data/
+drizzle/meta/
+node_modules/
+.playwright-mcp/
