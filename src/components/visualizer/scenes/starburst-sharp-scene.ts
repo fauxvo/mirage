@@ -287,7 +287,7 @@ const METADATA: SceneRegistration = {
   id: 'starburst-sharp',
   name: 'Starburst Sharp',
   description: 'Many thin, crisp alternating rays — retro sunburst',
-  category: 'abstract',
+  category: 'immersive',
   audioDescription: 'Bass extends ray reach, highs sharpen band edges',
   params: [],
 };

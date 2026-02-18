@@ -6,6 +6,7 @@ import { Settings, Maximize2, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VisualizerEngine } from '@/components/visualizer/visualizer-engine';
 import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-settings-panel';
+import { HelpModal } from '@/components/settings/help-modal';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -45,7 +46,8 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
   const [config, setConfig] = useState<VisualizerConfig | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
   const [colorCycleEnabled, setColorCycleEnabled] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -93,33 +95,12 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     load();
   }, [id, isNewSession]);
 
-  // Initialize engine
+  // Initialize engine (no mic access until user enables audio)
   useEffect(() => {
     if (!config || !canvasRef.current) return;
 
     const engine = new VisualizerEngine(canvasRef.current, config);
     engineRef.current = engine;
-
-    // Set up mic audio
-    if (audioEnabled) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          const ctx = new AudioContext();
-          audioCtxRef.current = ctx;
-          const source = ctx.createMediaStreamSource(stream);
-          const analyser = ctx.createAnalyser();
-          analyser.fftSize = 256;
-          source.connect(analyser);
-          // NOT connected to destination (no feedback)
-          engine.setAnalyser(analyser);
-        })
-        .catch(() => {
-          setAudioEnabled(false);
-          engine.setAudioEnabled(false);
-        });
-    }
-
     engine.start();
 
     return () => {
@@ -133,6 +114,31 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     // Only run on initial config load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config !== null]);
+
+  // Lazily request microphone when audio is enabled.
+  // Deferred so the browser permission prompt only appears when
+  // the user explicitly turns on audio-reactive mode.
+  const initMicAudio = useCallback(() => {
+    if (audioCtxRef.current) return; // already set up
+
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        const ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        // NOT connected to destination (no feedback)
+        engineRef.current?.setAnalyser(analyser);
+        engineRef.current?.setAudioEnabled(true);
+      })
+      .catch(() => {
+        setAudioEnabled(false);
+        engineRef.current?.setAudioEnabled(false);
+      });
+  }, []);
 
   // Auto-hide controls
   useEffect(() => {
@@ -163,15 +169,20 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         case 's':
           setShowSettings((prev) => !prev);
           break;
+        case 'h':
+          setShowHelp((prev) => !prev);
+          break;
         case 'm':
           setAudioEnabled((prev) => {
             const next = !prev;
             engineRef.current?.setAudioEnabled(next);
+            if (next) initMicAudio();
             return next;
           });
           break;
         case 'escape':
-          if (showSettings) setShowSettings(false);
+          if (showHelp) setShowHelp(false);
+          else if (showSettings) setShowSettings(false);
           else if (document.fullscreenElement) document.exitFullscreen();
           break;
       }
@@ -179,7 +190,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showSettings]);
+  }, [showSettings, showHelp, initMicAudio]);
 
   // Debounced save
   const saveConfig = useCallback(
@@ -267,7 +278,8 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const handleToggleAudio = useCallback((enabled: boolean) => {
     setAudioEnabled(enabled);
     engineRef.current?.setAudioEnabled(enabled);
-  }, []);
+    if (enabled) initMicAudio();
+  }, [initMicAudio]);
 
   if (!config) {
     return (
@@ -331,8 +343,12 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           onConfigUpdate={handleConfigUpdate}
           onQuickChange={handleQuickChange}
           onClose={() => setShowSettings(false)}
+          onShowHelp={() => setShowHelp(true)}
         />
       )}
+
+      {/* Help Modal - rendered at page level so it's not clipped by sidebar */}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

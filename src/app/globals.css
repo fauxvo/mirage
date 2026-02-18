@@ -20,3 +20,21 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.2s ease-out;
 }
+
+@keyframes landing-pulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+@keyframes landing-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -20px); }
+}
+
+.animate-landing-pulse {
+  animation: landing-pulse 8s ease-in-out infinite;
+}
+
+.animate-landing-drift {
+  animation: landing-drift 12s ease-in-out infinite;
+}

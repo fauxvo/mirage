@@ -277,7 +277,7 @@ const METADATA: SceneRegistration = {
   id: 'starburst-soft',
   name: 'Starburst Soft',
   description: 'Wide, diffused rays with a gentle dreamy glow',
-  category: 'abstract',
+  category: 'immersive',
   audioDescription: 'Bass gently widens rays, mids brighten the glow',
   params: [],
 };

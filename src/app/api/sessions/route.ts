@@ -6,7 +6,7 @@ import { CreateSessionSchema } from '@/lib/schemas';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) {
+  if (!(await validateApiKey(request))) {
     return errorResponse('Invalid or missing API key', 401);
   }
 
