@@ -68,6 +68,13 @@ describe('proxy', () => {
       expect(data.success).toBe(false);
       expect(data.error).toBe('Authentication required');
     });
+
+    it('redirects unauthenticated /dashboard to /login', async () => {
+      const res = await proxy(makeRequest('/dashboard'));
+      expect(res.status).toBe(307);
+      expect(res.headers.get('location')).toContain('/login');
+      expect(res.headers.get('location')).toContain('redirect=%2Fdashboard');
+    });
   });
 
   describe('authenticated access', () => {
@@ -80,6 +87,16 @@ describe('proxy', () => {
 
     it('allows authenticated user to access non-admin routes', async () => {
       const res = await proxy(makeRequest('/some-page', 'valid-token'));
+      expect(res.status).toBe(200);
+    });
+
+    it('allows authenticated user to access /dashboard', async () => {
+      const res = await proxy(makeRequest('/dashboard', 'valid-token'));
+      expect(res.status).toBe(200);
+    });
+
+    it('allows authenticated user to access /dashboard/account', async () => {
+      const res = await proxy(makeRequest('/dashboard/account', 'valid-token'));
       expect(res.status).toBe(200);
     });
 

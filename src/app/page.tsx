@@ -1,13 +1,5 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  Mic,
-  Share2,
-  Palette,
-  Layers,
-  Monitor,
-  Zap,
-} from 'lucide-react';
+import { ArrowRight, Mic, Share2, Palette, Layers, Monitor, Zap } from 'lucide-react';
 
 const FEATURES = [
   {
@@ -67,7 +59,8 @@ export default function Home() {
             Mirage
           </h1>
           <p className="text-base sm:text-lg text-white/40 leading-relaxed max-w-md mx-auto mb-12">
-            26 Three.js scenes driven by your microphone. Self-hosted, shareable, endlessly customizable.
+            26 Three.js scenes driven by your microphone. Self-hosted, shareable, endlessly
+            customizable.
           </p>
           <Link
             href="/v/new"
@@ -115,7 +108,10 @@ export default function Home() {
         <div className="border-t border-white/[0.04] pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-white/20">Mirage &mdash; self-hosted music visualizer</p>
           <div className="flex gap-6">
-            <Link href="/v/new" className="text-xs text-white/30 hover:text-white/50 transition-colors">
+            <Link
+              href="/v/new"
+              className="text-xs text-white/30 hover:text-white/50 transition-colors"
+            >
               Visualizer
             </Link>
             <Link
@@ -131,7 +127,7 @@ export default function Home() {
               API
             </Link>
             <Link
-              href="/admin"
+              href="/dashboard"
               className="text-xs text-white/30 hover:text-white/50 transition-colors"
             >
               Dashboard
