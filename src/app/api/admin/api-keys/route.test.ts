@@ -12,6 +12,10 @@ vi.mock('@/db/repositories/api-key.repository', () => ({
   },
 }));
 
+vi.mock('@/lib/api-key', () => ({
+  hashKey: vi.fn().mockResolvedValue('mocked-hash'),
+}));
+
 vi.mock('nanoid', () => ({
   nanoid: vi.fn().mockReturnValue('abcdefghijklmnopqrstuvwxyz123456'),
 }));
@@ -51,11 +55,12 @@ describe('GET /api/admin/api-keys', () => {
   it('returns list of keys when authenticated', async () => {
     const keys = [
       {
-        id: 1,
+        id: 'key-abc123',
         name: 'Production',
         keyHash: 'hash',
         keyPrefix: 'mk_abcdef12',
         createdById: 'user-1',
+        lastUsedAt: null,
         revokedAt: null,
         createdAt: new Date(),
       },
@@ -109,11 +114,12 @@ describe('POST /api/admin/api-keys', () => {
 
   it('creates API key and returns raw key', async () => {
     mockCreate.mockResolvedValue({
-      id: 1,
+      id: 'key-abc123',
       name: 'Production',
       keyHash: 'hash',
       keyPrefix: 'mk_abcdefgh',
       createdById: 'user-1',
+      lastUsedAt: null,
       revokedAt: null,
       createdAt: new Date(),
     });

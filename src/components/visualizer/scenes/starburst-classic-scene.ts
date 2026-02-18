@@ -282,7 +282,10 @@ export class StarburstClassicScene {
     ) {
       this.config = { ...this.config, ...config };
     }
-    if (config.textureOpacity !== undefined && (this.config.textureAnimation ?? 'none') === 'none') {
+    if (
+      config.textureOpacity !== undefined &&
+      (this.config.textureAnimation ?? 'none') === 'none'
+    ) {
       this.logoMaterial.uniforms.uOpacity.value = config.textureOpacity;
     }
     if (config.patternOffsetX !== undefined) {

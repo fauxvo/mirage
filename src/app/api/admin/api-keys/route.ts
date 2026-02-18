@@ -1,17 +1,10 @@
 import { NextRequest } from 'next/server';
 import { nanoid } from 'nanoid';
 import { requireAdmin } from '@/lib/auth/auth-guards';
+import { hashKey } from '@/lib/api-key';
 import { apiKeyRepository } from '@/db/repositories/api-key.repository';
 import { CreateApiKeySchema } from '@/lib/auth-schemas';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-
-async function hashKey(key: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(key);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 export async function GET() {
   const { error } = await requireAdmin();

@@ -168,7 +168,17 @@ const METADATA: SceneRegistration = {
   description: 'Mirrored geometric patterns with symmetry folds',
   category: 'geometric',
   audioDescription: 'Bass zooms pattern, mids rotate the view, highs split colors',
-  params: [{ key: 'symmetry', label: 'Symmetry Folds', type: 'slider', min: 1, max: 12, step: 1, default: 6 }],
+  params: [
+    {
+      key: 'symmetry',
+      label: 'Symmetry Folds',
+      type: 'slider',
+      min: 1,
+      max: 12,
+      step: 1,
+      default: 6,
+    },
+  ],
 };
 
 registerScene('kaleidoscope', (scene, config) => new KaleidoscopeScene(scene, config), METADATA);

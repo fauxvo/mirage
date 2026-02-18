@@ -7,7 +7,12 @@ export class SessionRepository {
     return getDb();
   }
 
-  async create(data: { id: string; adminToken: string; config: string; textureUrl?: string | null }) {
+  async create(data: {
+    id: string;
+    adminToken: string;
+    config: string;
+    textureUrl?: string | null;
+  }) {
     const now = new Date();
     await this.db.insert(sessions).values({
       id: data.id,

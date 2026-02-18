@@ -66,10 +66,7 @@ export async function proxy(request: NextRequest) {
   const secret = getSecret();
   if (secret.length === 0) {
     const response = isApiRoute(pathname)
-      ? NextResponse.json(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        )
+      ? NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
       : NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete(COOKIE_NAME);
     return response;
@@ -96,10 +93,7 @@ export async function proxy(request: NextRequest) {
   } catch {
     // Invalid/expired token — clear cookie
     const response = isApiRoute(pathname)
-      ? NextResponse.json(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        )
+      ? NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
       : NextResponse.redirect(new URL('/login', request.url));
     response.cookies.delete(COOKIE_NAME);
     return response;

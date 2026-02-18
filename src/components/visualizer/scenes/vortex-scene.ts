@@ -191,7 +191,17 @@ const METADATA: SceneRegistration = {
   description: 'Spiral vortex pull with central glow sphere',
   category: 'immersive',
   audioDescription: 'Bass tightens the spiral, mids control rotation speed, highs glow particles',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('vortex', (scene, config) => new VortexScene(scene, config), METADATA);

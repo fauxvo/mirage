@@ -140,19 +140,20 @@ API Routes → lib/schemas (Zod) → Repositories → Database (Drizzle/SQLite)
 
 ### API Routes
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/sessions | API key | Create session |
-| GET | /api/sessions/[id] | None | Read session (public) |
-| PUT | /api/sessions/[id] | Admin token | Update config/texture |
-| DELETE | /api/sessions/[id] | Admin token | Delete session |
-| POST | /api/upload | Admin token + session ID | Upload texture to S3 |
-| GET | /api/health | None | Health check |
-| GET | /api/openapi | None | OpenAPI 3.0 spec |
+| Method | Path               | Auth                     | Description           |
+| ------ | ------------------ | ------------------------ | --------------------- |
+| POST   | /api/sessions      | API key                  | Create session        |
+| GET    | /api/sessions/[id] | None                     | Read session (public) |
+| PUT    | /api/sessions/[id] | Admin token              | Update config/texture |
+| DELETE | /api/sessions/[id] | Admin token              | Delete session        |
+| POST   | /api/upload        | Admin token + session ID | Upload texture to S3  |
+| GET    | /api/health        | None                     | Health check          |
+| GET    | /api/openapi       | None                     | OpenAPI 3.0 spec      |
 
 ### Visualizer Engine (`visualizer-engine.ts`)
 
 Central Three.js orchestrator class handling:
+
 - **Renderer**: WebGL with antialias, pixel ratio capped at 2
 - **Post-processing**: EffectComposer → RenderPass → UnrealBloomPass → OutputPass
 - **Tone mapping**: ACESFilmic (exposure 1.2)
@@ -166,21 +167,23 @@ Central Three.js orchestrator class handling:
 
 26 scenes organized into 5 categories:
 
-| Category | Scenes |
-|----------|--------|
-| Organic | aurora, particles, ocean, lava, metaballs |
-| Cosmic | galaxy, starfield, nebula, vortex |
-| Geometric | geometric, rings, orb, kaleidoscope, voronoi |
-| Abstract | fractal, dna, matrix, waveform |
+| Category  | Scenes                                                                                                         |
+| --------- | -------------------------------------------------------------------------------------------------------------- |
+| Organic   | aurora, particles, ocean, lava, metaballs                                                                      |
+| Cosmic    | galaxy, starfield, nebula, vortex                                                                              |
+| Geometric | geometric, rings, orb, kaleidoscope, voronoi                                                                   |
+| Abstract  | fractal, dna, matrix, waveform                                                                                 |
 | Immersive | tunnel, terrain, starburst, starburst-classic, starburst-flat, starburst-soft, starburst-sharp, starburst-spin |
 
 **Scene Registration Pattern:**
+
 - Each scene file calls `registerScene(id, factory, metadata)` at module scope
 - `scenes/index.ts` barrel-imports all scenes → triggers self-registration
 - Scene registry provides `createScene()`, `getAvailableScenes()`, `getAllSceneMetadata()`
 - Fallback to 'particles' if requested scene not found
 
 **SceneHandler Interface:**
+
 ```typescript
 interface SceneHandler {
   update(bass: number, mid: number, high: number): void;
@@ -191,6 +194,7 @@ interface SceneHandler {
 ```
 
 **Adding a New Scene:**
+
 1. Create `src/components/visualizer/scenes/my-scene.ts`
 2. Implement the class with update/updateConfig/dispose methods
 3. Create `SceneRegistration` metadata (id, name, description, category, params)
@@ -198,12 +202,15 @@ interface SceneHandler {
 5. Add `import './my-scene';` to `scenes/index.ts`
 
 **Per-Scene Parameters (`SceneParamDef`):**
+
 ```typescript
 interface SceneParamDef {
-  key: string;        // stored in config.sceneParams[key]
+  key: string; // stored in config.sceneParams[key]
   label: string;
   type: 'slider' | 'toggle' | 'select';
-  min?: number; max?: number; step?: number; // slider
+  min?: number;
+  max?: number;
+  step?: number; // slider
   options?: { label: string; value: string }[]; // select
   default: unknown;
 }
@@ -236,6 +243,7 @@ interface SceneParamDef {
 ### Config Validation (Zod)
 
 All config changes validated against `VisualizerConfigSchema`:
+
 - 17 properties (scene, palette, density, speed, bloom, audio reactivity, camera, wireframe, symmetry folds, depth, color cycle, texture scale/opacity/animation/URL, pattern offset, scene params)
 - API requests validated before database writes
 - Invalid config falls back to defaults

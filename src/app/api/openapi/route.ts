@@ -53,9 +53,7 @@ export async function GET() {
       '/api/sessions/{id}': {
         get: {
           summary: 'Get session details (public)',
-          parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          ],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
             '200': { description: 'Session details' },
             '404': { description: 'Session not found' },
@@ -63,9 +61,7 @@ export async function GET() {
         },
         put: {
           summary: 'Update session (admin token required)',
-          parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          ],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
             content: {
               'application/json': {
@@ -81,9 +77,7 @@ export async function GET() {
         },
         delete: {
           summary: 'Delete session (admin token required)',
-          parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          ],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
             '200': { description: 'Session deleted' },
             '403': { description: 'Invalid admin token' },

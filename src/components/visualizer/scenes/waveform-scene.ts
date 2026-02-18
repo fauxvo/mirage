@@ -159,7 +159,8 @@ const METADATA: SceneRegistration = {
   name: 'Waveform',
   description: '3D circular waveform ring with audio displacement',
   category: 'abstract',
-  audioDescription: 'Bass scales the ring, mids control wave amplitude, highs boost color intensity',
+  audioDescription:
+    'Bass scales the ring, mids control wave amplitude, highs boost color intensity',
   params: [],
 };
 

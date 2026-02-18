@@ -109,9 +109,7 @@ export function AdminUserList({
             </div>
             <button
               onClick={() => handleDelete(user.id)}
-              disabled={
-                user.id === currentUserId || (user.role === 'admin' && adminCount <= 1)
-              }
+              disabled={user.id === currentUserId || (user.role === 'admin' && adminCount <= 1)}
               className="p-1.5 rounded text-white/20 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
               title={
                 user.id === currentUserId

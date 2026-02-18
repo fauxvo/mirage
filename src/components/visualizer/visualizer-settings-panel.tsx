@@ -14,7 +14,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAllSceneMetadata, getSceneMetadata } from '@/components/visualizer/scenes/scene-registry';
+import {
+  getAllSceneMetadata,
+  getSceneMetadata,
+} from '@/components/visualizer/scenes/scene-registry';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import { SliderControl, TextureAnimationPicker } from '@/components/settings/slider-control';
 import type { VisualizerConfig } from '@/types/visualizer';
@@ -578,9 +581,7 @@ export function VisualizerSettingsPanel({
               <SliderControl
                 key={param.key}
                 label={param.label}
-                value={
-                  (config.sceneParams?.[param.key] as number) ?? (param.default as number)
-                }
+                value={(config.sceneParams?.[param.key] as number) ?? (param.default as number)}
                 min={param.min!}
                 max={param.max!}
                 step={param.step!}

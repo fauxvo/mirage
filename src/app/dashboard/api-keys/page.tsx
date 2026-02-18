@@ -5,16 +5,21 @@ import { ApiKeysSection } from '@/components/dashboard/api-keys-section';
 
 export default async function ApiKeysPage() {
   const session = await verifySession();
-  if (!session || session.role !== 'admin') redirect('/dashboard');
+  if (!session) redirect('/login');
 
-  const keys = await apiKeyRepository.listAll();
+  const isAdmin = session.role === 'admin';
+  const keys = isAdmin
+    ? await apiKeyRepository.listAll()
+    : await apiKeyRepository.listByUser(session.userId);
+
   const serializedKeys = keys.map((k) => ({
     id: k.id,
     name: k.name,
     keyPrefix: k.keyPrefix,
+    lastUsedAt: k.lastUsedAt ? new Date(k.lastUsedAt).toISOString() : null,
     revokedAt: k.revokedAt ? new Date(k.revokedAt).toISOString() : null,
     createdAt: new Date(k.createdAt).toISOString(),
   }));
 
-  return <ApiKeysSection initialKeys={serializedKeys} />;
+  return <ApiKeysSection initialKeys={serializedKeys} isAdmin={isAdmin} />;
 }

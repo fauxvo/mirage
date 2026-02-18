@@ -55,9 +55,7 @@ describe('JWT encrypt/decrypt', () => {
     vi.stubEnv('ADMIN_PASSWORD', '');
     vi.stubEnv('ADMIN_SESSION_SECRET', '');
 
-    await expect(
-      encrypt({ userId: 'abc123', username: 'admin', role: 'admin' })
-    ).rejects.toThrow();
+    await expect(encrypt({ userId: 'abc123', username: 'admin', role: 'admin' })).rejects.toThrow();
   });
 
   it('prefers JWT_SECRET over ADMIN_SESSION_SECRET and ADMIN_PASSWORD', async () => {

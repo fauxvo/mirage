@@ -183,7 +183,17 @@ const METADATA: SceneRegistration = {
   description: 'Flowing wave landscape with ambient particles',
   category: 'organic',
   audioDescription: 'Bass controls wave height, mids shift colors, highs add particle sparkle',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('aurora', (scene, config) => new AuroraScene(scene, config), METADATA);

@@ -6,14 +6,21 @@ import { Trash2, Plus } from 'lucide-react';
 import { KeyRevealModal } from './key-reveal-modal';
 
 interface ApiKey {
-  id: number;
+  id: string;
   name: string;
   keyPrefix: string;
+  lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
 }
 
-export function ApiKeyList({ initialKeys }: { initialKeys: ApiKey[] }) {
+export function ApiKeyList({
+  initialKeys,
+  apiEndpoint = '/api/admin/api-keys',
+}: {
+  initialKeys: ApiKey[];
+  apiEndpoint?: string;
+}) {
   const router = useRouter();
   const [keys, setKeys] = useState<ApiKey[]>(initialKeys);
   const [showForm, setShowForm] = useState(false);
@@ -28,7 +35,7 @@ export function ApiKeyList({ initialKeys }: { initialKeys: ApiKey[] }) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/api-keys', {
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -46,6 +53,7 @@ export function ApiKeyList({ initialKeys }: { initialKeys: ApiKey[] }) {
           id: data.data.id,
           name: data.data.name,
           keyPrefix: data.data.keyPrefix,
+          lastUsedAt: null,
           revokedAt: null,
           createdAt: new Date().toISOString(),
         },
@@ -60,19 +68,17 @@ export function ApiKeyList({ initialKeys }: { initialKeys: ApiKey[] }) {
     }
   }
 
-  async function handleRevoke(id: number) {
+  async function handleRevoke(id: string) {
     if (!confirm('Are you sure you want to revoke this API key? This cannot be undone.')) return;
 
     try {
-      const res = await fetch(`/api/admin/api-keys/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${apiEndpoint}/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) {
         alert(data.error);
         return;
       }
-      setKeys(
-        keys.map((k) => (k.id === id ? { ...k, revokedAt: new Date().toISOString() } : k))
-      );
+      setKeys(keys.map((k) => (k.id === id ? { ...k, revokedAt: new Date().toISOString() } : k)));
       router.refresh();
     } catch {
       alert('Network error');
@@ -110,7 +116,18 @@ export function ApiKeyList({ initialKeys }: { initialKeys: ApiKey[] }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-white/20 font-mono mt-0.5">{key.keyPrefix}...</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-white/20 font-mono">{key.keyPrefix}...</p>
+                      {key.lastUsedAt && (
+                        <p className="text-[10px] text-white/15">
+                          Last used{' '}
+                          {new Date(key.lastUsedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {!isRevoked && (

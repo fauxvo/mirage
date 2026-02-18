@@ -32,7 +32,8 @@ function LoginForm() {
 
       const rawRedirect = searchParams.get('redirect') || '/';
       // Prevent open redirect — only allow relative paths
-      const redirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
+      const redirect =
+        rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
       router.push(redirect);
     } catch {
       setError('Network error');

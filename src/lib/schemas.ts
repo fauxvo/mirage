@@ -38,6 +38,12 @@ export const UpdateSessionSchema = z.object({
 });
 
 // JSON Schema exports for OpenAPI
-export const visualizerConfigJsonSchema = z.toJSONSchema(VisualizerConfigSchema, { target: 'draft-2020-12' });
-export const createSessionJsonSchema = z.toJSONSchema(CreateSessionSchema, { target: 'draft-2020-12' });
-export const updateSessionJsonSchema = z.toJSONSchema(UpdateSessionSchema, { target: 'draft-2020-12' });
+export const visualizerConfigJsonSchema = z.toJSONSchema(VisualizerConfigSchema, {
+  target: 'draft-2020-12',
+});
+export const createSessionJsonSchema = z.toJSONSchema(CreateSessionSchema, {
+  target: 'draft-2020-12',
+});
+export const updateSessionJsonSchema = z.toJSONSchema(UpdateSessionSchema, {
+  target: 'draft-2020-12',
+});

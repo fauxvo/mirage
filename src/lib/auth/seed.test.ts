@@ -118,8 +118,6 @@ describe('ensureAdminSeeded', () => {
     const { ensureAdminSeeded } = await import('./seed');
     await ensureAdminSeeded();
 
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ username: 'admin' })
-    );
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ username: 'admin' }));
   });
 });

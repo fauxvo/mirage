@@ -162,7 +162,17 @@ const METADATA: SceneRegistration = {
   description: 'Dynamic particle field with orbital rotation',
   category: 'cosmic',
   audioDescription: 'Bass pulses expansion, mids control orbit speed, highs boost brightness',
-  params: [{ key: 'particleDensity', label: 'Particle Density', type: 'slider', min: 0, max: 1, step: 0.05, default: 0.5 }],
+  params: [
+    {
+      key: 'particleDensity',
+      label: 'Particle Density',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('particles', (scene, config) => new ParticleScene(scene, config), METADATA);

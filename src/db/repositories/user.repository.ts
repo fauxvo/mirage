@@ -36,20 +36,12 @@ export class UserRepository {
   }
 
   async findByUsername(username: string): Promise<UserRow | null> {
-    const result = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.username, username))
-      .limit(1);
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
     return result[0] ?? null;
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const result = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
     return result[0] ?? null;
   }
 
