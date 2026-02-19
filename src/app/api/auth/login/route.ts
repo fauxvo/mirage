@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const valid = await compare(parsed.data.password, user.passwordHash);
   if (!valid) {
-    Logger.warn(`Login: invalid password for user: ${parsed.data.username}`);
+    Logger.warn('Login: invalid password');
     return errorResponse('Invalid credentials', 401);
   }
 
