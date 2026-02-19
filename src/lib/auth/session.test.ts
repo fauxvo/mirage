@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { encrypt, decrypt, createSession } from './session';
+import { encrypt, decrypt, createSession, deleteSession } from './session';
 import { cookies } from 'next/headers';
 
 // Mock the cookies() function for session management
@@ -144,6 +144,26 @@ describe('createSession cookie secure flag', () => {
       'mirage-session',
       expect.any(String),
       expect.objectContaining({ secure: false })
+    );
+  });
+
+  it('deleteSession uses matching secure flag', async () => {
+    vi.stubEnv('SECURE_COOKIES', 'true');
+    await deleteSession();
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      '',
+      expect.objectContaining({ secure: true, maxAge: 0 })
+    );
+  });
+
+  it('deleteSession respects SECURE_COOKIES=false', async () => {
+    vi.stubEnv('SECURE_COOKIES', 'false');
+    await deleteSession();
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      '',
+      expect.objectContaining({ secure: false, maxAge: 0 })
     );
   });
 });
