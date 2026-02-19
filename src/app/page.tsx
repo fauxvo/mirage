@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Mic, Share2, Palette, Layers, Monitor, Zap } from 'lucide-react';
 
@@ -52,6 +53,14 @@ export default function Home() {
         <div className="absolute top-[30%] left-[30%] w-[500px] h-[500px] rounded-full bg-cyan-500/[0.04] blur-[120px] animate-landing-drift" />
 
         <div className="relative z-10 text-center max-w-2xl">
+          <Image
+            src="/logo.webp"
+            alt="Mirage logo"
+            width={120}
+            height={120}
+            className="mx-auto mb-8"
+            priority
+          />
           <p className="text-xs font-medium tracking-[0.3em] uppercase text-white/30 mb-6">
             Real-time 3D Music Visualizer
           </p>
