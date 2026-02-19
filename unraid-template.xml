@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Mirage</Name>
-  <Repository>mirage</Repository>
-  <Registry>https://github.com/fauxvo/mirage</Registry>
+  <Repository>ghcr.io/fauxvo/mirage:latest</Repository>
+  <Registry>https://ghcr.io/fauxvo/mirage</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
   <Support>https://github.com/fauxvo/mirage/issues</Support>

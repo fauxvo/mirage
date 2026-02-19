@@ -51,25 +51,31 @@ mirage/
 │   │   │   │   └── [id]/route.ts # GET/PUT/DELETE session
 │   │   │   └── upload/route.ts   # POST - texture upload (S3)
 │   │   ├── v/[id]/page.tsx       # Main visualizer page (client)
-│   │   ├── sessions/page.tsx     # Session management list
+│   │   ├── dashboard/            # User dashboard (sets, API keys, account, admin)
+│   │   ├── login/page.tsx        # Login page
+│   │   ├── register/page.tsx     # Registration page
 │   │   ├── page.tsx              # Landing page
-│   │   └── layout.tsx            # Root layout (metadata, dark mode)
+│   │   └── layout.tsx            # Root layout (metadata, favicon, dark mode)
 │   │
 │   ├── components/
 │   │   ├── visualizer/
 │   │   │   ├── visualizer-engine.ts          # Three.js engine class
 │   │   │   ├── visualizer-settings-panel.tsx # Settings sidebar UI
-│   │   │   └── scenes/                       # 24 scene implementations
+│   │   │   ├── youtube-player-bar.tsx         # YouTube playlist player bar
+│   │   │   ├── cue-switcher-bar.tsx          # Cue switching bottom bar
+│   │   │   └── scenes/                       # 25 scene implementations
 │   │   │       ├── index.ts                  # Barrel import (triggers registration)
 │   │   │       ├── scene-registry.ts         # Registry: createScene, getAvailableScenes
 │   │   │       ├── types.ts                  # SceneHandler, SceneParamDef, SceneRegistration
 │   │   │       ├── starburst-utils.ts        # Shared starburst opacity animations
 │   │   │       └── [scene-name]-scene.ts     # Individual scene files (self-registering)
+│   │   ├── dashboard/
+│   │   │   ├── set-card.tsx                  # Set card with edit/delete actions
+│   │   │   ├── set-edit-modal.tsx            # Set editing modal
+│   │   │   └── sets-section.tsx              # Sets list section
 │   │   ├── settings/
 │   │   │   ├── slider-control.tsx            # Reusable range slider
 │   │   │   └── help-modal.tsx                # Full-screen help/guide modal
-│   │   └── sessions/
-│   │       └── session-list.tsx              # Session list with actions
 │   │
 │   ├── constants/
 │   │   ├── scene-metadata.ts       # Scene categories, metadata helpers
@@ -86,20 +92,23 @@ mirage/
 │   ├── lib/
 │   │   ├── api-key.ts              # validateApiKey() header check
 │   │   ├── api-utils.ts            # successResponse(), errorResponse() helpers
+│   │   ├── auth/                   # Auth system (session, guards, seed)
 │   │   ├── creator-token.ts        # generateSessionId(), generateAdminToken()
 │   │   ├── s3.ts                   # S3 client, upload/delete operations
 │   │   ├── schemas.ts              # Zod schemas (config, session, JSON schema export)
+│   │   ├── youtube.ts              # extractPlaylistId() utility
 │   │   └── utils.ts                # cn() (clsx+merge), formatDuration(), Logger
 │   │
 │   ├── types/
-│   │   ├── api.ts                  # ApiResponse<T>, SessionResponse
-│   │   └── visualizer.ts           # VisualizerConfig, VisualizerColorPalette
+│   │   ├── api.ts                  # ApiResponse<T>, SessionResponse, SetListItem
+│   │   ├── visualizer.ts           # VisualizerConfig, VisualizerColorPalette
+│   │   └── youtube.d.ts            # YouTube IFrame API type declarations
 │   │
 │   └── test/
 │       └── setup.ts                # Jest-DOM matchers setup
 │
 ├── package.json
-├── next.config.ts                  # serverExternalPackages: ['better-sqlite3'], transpilePackages: ['three']
+├── next.config.ts                  # output: 'standalone', serverExternalPackages: ['better-sqlite3'], transpilePackages: ['three']
 ├── tsconfig.json                   # ES2017, bundler resolution, strict, @/ alias
 ├── drizzle.config.ts               # SQLite dialect, ./data/mirage.db
 ├── vitest.config.ts                # jsdom, globals, @/ alias
@@ -119,10 +128,19 @@ Client (page.tsx) → VisualizerEngine (Three.js) → SceneHandlers
 API Routes → lib/schemas (Zod) → Repositories → Database (Drizzle/SQLite)
 ```
 
-### Sessions & Authentication
+### User Authentication & Dashboard
+
+- Cookie-based session auth via `verifySession()` / `requireAuth()` in `src/lib/auth/session.ts`
+- JWT tokens signed with `JWT_SECRET` env var (falls back to `ADMIN_PASSWORD`)
+- Dashboard at `/dashboard` — sets, API keys, account settings, admin functions
+- User registration at `/register` (controlled by `ALLOW_REGISTRATION` env var, defaults `true`)
+- Login at `/login`, logout via `/api/auth/logout`
+- Admin role check: `session.role === 'admin'` for admin-only sections
+
+### Sessions & Visualizer
 
 - `POST /api/sessions` creates a session → returns `{sessionId, adminToken, url}`
-- API key required for creation: `MIRAGE_API_KEY` header or `Authorization: Bearer`
+- API key required for creation: validated via `mk_` prefix keys stored as SHA-256 hashes
 - Admin token stored in `localStorage[mirage-admin-${sessionId}]`
 - `GET /v/{id}` is public (shareable URL), PUT/DELETE require `x-admin-token` header
 - `/v/new` = local-only mode (localStorage, no server session)
@@ -140,15 +158,40 @@ API Routes → lib/schemas (Zod) → Repositories → Database (Drizzle/SQLite)
 
 ### API Routes
 
-| Method | Path               | Auth                     | Description           |
-| ------ | ------------------ | ------------------------ | --------------------- |
-| POST   | /api/sessions      | API key                  | Create session        |
-| GET    | /api/sessions/[id] | None                     | Read session (public) |
-| PUT    | /api/sessions/[id] | Admin token              | Update config/texture |
-| DELETE | /api/sessions/[id] | Admin token              | Delete session        |
-| POST   | /api/upload        | Admin token + session ID | Upload texture to S3  |
-| GET    | /api/health        | None                     | Health check          |
-| GET    | /api/openapi       | None                     | OpenAPI 3.0 spec      |
+| Method | Path                        | Auth                     | Description            |
+| ------ | --------------------------- | ------------------------ | ---------------------- |
+| POST   | /api/sessions               | API key                  | Create session         |
+| GET    | /api/sessions/[id]          | None                     | Read session (public)  |
+| PUT    | /api/sessions/[id]          | Admin token              | Update config/texture  |
+| DELETE | /api/sessions/[id]          | Admin token              | Delete session         |
+| POST   | /api/upload                 | Admin token + session ID | Upload texture to S3   |
+| GET    | /api/textures/[...path]     | None                     | Proxy texture from R2  |
+| GET    | /api/health                 | None                     | Health check           |
+| GET    | /api/openapi                | None                     | OpenAPI 3.0 spec       |
+| POST   | /api/auth/login             | None                     | User login             |
+| POST   | /api/auth/logout            | Session cookie           | User logout            |
+| POST   | /api/auth/register          | None                     | User registration      |
+| GET    | /api/auth/me                | Session cookie           | Current user info      |
+| PUT    | /api/auth/password          | Session cookie           | Change password        |
+| GET    | /api/sets                   | Session cookie           | List user's sets       |
+| POST   | /api/sets                   | Session cookie           | Create set             |
+| GET    | /api/sets/[id]              | Session cookie           | Get set details        |
+| PUT    | /api/sets/[id]              | Session cookie           | Update set             |
+| DELETE | /api/sets/[id]              | Session cookie           | Delete set             |
+| GET    | /api/sets/[id]/cues         | Session cookie           | List cues in set       |
+| POST   | /api/sets/[id]/cues         | Session cookie           | Create cue             |
+| PUT    | /api/sets/[id]/cues/[cueId] | Session cookie           | Update cue             |
+| DELETE | /api/sets/[id]/cues/[cueId] | Session cookie           | Delete cue             |
+| PUT    | /api/sets/[id]/cues/reorder | Session cookie           | Reorder cues           |
+| GET    | /api/keys                   | Session cookie           | List user's API keys   |
+| POST   | /api/keys                   | Session cookie           | Create API key         |
+| DELETE | /api/keys/[id]              | Session cookie           | Revoke API key         |
+| GET    | /api/users                  | Admin session            | List users (admin)     |
+| DELETE | /api/users/[id]             | Admin session            | Delete user (admin)    |
+| GET    | /api/admin/api-keys         | Admin session            | List all API keys      |
+| POST   | /api/admin/api-keys         | Admin session            | Create API key (admin) |
+| DELETE | /api/admin/api-keys/[id]    | Admin session            | Revoke API key (admin) |
+| GET    | /api/admin/usage            | Admin session            | Usage overview (admin) |
 
 ### Visualizer Engine (`visualizer-engine.ts`)
 
@@ -252,7 +295,7 @@ All config changes validated against `VisualizerConfigSchema`:
 
 - SQLite at `./data/mirage.db`
 - WAL mode + foreign keys enabled
-- Single table: `sessions` (id, admin_token, config JSON, texture_url, timestamps)
+- Tables: `users`, `sessions` (auth), `api_keys`, `sets`, `cues`, `visualizer_sessions`
 - Run migrations: `bun run db:push`
 - Schema changes: edit `src/db/schema/`, then `bun run db:generate` + `bun run db:push`
 
@@ -262,8 +305,12 @@ All config changes validated against `VisualizerConfigSchema`:
 # Database
 DATABASE_URL=./data/mirage.db
 
-# API Security (optional - if unset, session creation is open)
-MIRAGE_API_KEY=your-secret-key
+# Auth
+JWT_SECRET=                    # JWT signing secret (falls back to ADMIN_PASSWORD)
+ADMIN_USERNAME=admin           # Initial admin username (first-time setup)
+ADMIN_EMAIL=                   # Initial admin email (required for first-time setup)
+ADMIN_PASSWORD=                # Initial admin password (min 8 chars, first-time setup)
+ALLOW_REGISTRATION=true        # Set to 'false' to disable public user registration
 
 # S3 Storage (all optional - if unset, textures use base64 in config)
 S3_BUCKET=mirage-textures
@@ -272,6 +319,7 @@ S3_ENDPOINT=                   # For MinIO/R2: http://localhost:9000
 S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 S3_FORCE_PATH_STYLE=true       # Required for MinIO/R2/non-AWS
+S3_PUBLIC_URL=                 # Public URL for direct texture serving (bypasses proxy)
 ```
 
 ## Code Style
@@ -286,8 +334,10 @@ S3_FORCE_PATH_STYLE=true       # Required for MinIO/R2/non-AWS
 
 ## Security Considerations
 
-- Admin tokens are secrets — never expose in public API responses
+- JWT session tokens signed with `JWT_SECRET` — never expose this value
 - API key validation uses constant-time comparison where possible
+- Passwords hashed with bcrypt via `src/lib/auth/`
+- `ALLOW_REGISTRATION=true` by default — set to `false` after creating your admin account to prevent public sign-ups
 - S3 credentials are server-side only
 - File upload validates MIME type and size (<10MB images only)
 - All user input validated via Zod schemas before database writes
@@ -295,8 +345,8 @@ S3_FORCE_PATH_STYLE=true       # Required for MinIO/R2/non-AWS
 
 ## Deployment
 
-- **Docker**: `Dockerfile` + `docker-compose.yml` included
-- **Unraid**: Template XML for Unraid Community Apps
+- **Docker**: `Dockerfile` (standalone output) + `docker-compose.yml`
+- **Unraid**: Template XML at `unraid-template.xml` — copy to `/boot/config/plugins/dockerMan/templates-user/mirage.xml`
 - **Port**: 4444 (configurable in docker-compose)
 - **Data**: Mount `./data/` for persistent SQLite database
 - **S3**: Optional — configure env vars for texture storage

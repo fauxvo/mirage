@@ -95,6 +95,8 @@ ADMIN_PASSWORD=your-secure-password   # min 8 characters
 
 On first startup, Mirage seeds the database with this admin user. After that, you can create additional users and API keys from the dashboard.
 
+> **Security note:** `ALLOW_REGISTRATION` defaults to `true`, meaning anyone can create an account. Set `ALLOW_REGISTRATION=false` after creating your admin account to prevent public sign-ups.
+
 ### Generating JWT_SECRET
 
 The `JWT_SECRET` is used to sign session JWTs. If not set, it falls back to `ADMIN_PASSWORD`. For production, generate a dedicated secret:
@@ -162,18 +164,10 @@ Mirage includes a ready-made Unraid Community Applications template. Follow thes
 ### Prerequisites
 
 - Unraid 6.12+ with Docker enabled
-- The Mirage Docker image built or pulled to your server
 
-### Step 1: Build or pull the Docker image
+### Step 1: Pull the Docker image
 
-On your Unraid server (or any machine with Docker), build the image from the repo:
-
-```bash
-cd /path/to/mirage
-docker build -t mirage .
-```
-
-Or if you're hosting the image in a registry, pull it directly:
+The image is published to GitHub Container Registry on every push to `main`:
 
 ```bash
 docker pull ghcr.io/fauxvo/mirage:latest

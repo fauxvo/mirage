@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    files: ['migrate.js'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 ]);
 
 export default eslintConfig;
