@@ -1,6 +1,6 @@
-import { SetForm } from '@/components/dashboard/set-form';
+import { redirect } from 'next/navigation';
 
 export default async function EditSetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <SetForm mode="edit" setId={id} />;
+  redirect(`/v/${id}`);
 }

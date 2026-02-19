@@ -1,3 +1,5 @@
+import type { VisualizerConfig } from './visualizer';
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -26,7 +28,7 @@ export interface CueResponse {
   id: string;
   position: number;
   name: string;
-  config: Record<string, unknown>;
+  config: VisualizerConfig;
   textureUrl: string | null;
   createdAt: string;
   updatedAt: string;

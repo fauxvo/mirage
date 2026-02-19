@@ -9,6 +9,7 @@ import { VisualizerEngine } from '@/components/visualizer/visualizer-engine';
 import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-settings-panel';
 import { HelpModal } from '@/components/settings/help-modal';
 import { CueSwitcherBar, type CueSummary } from '@/components/visualizer/cue-switcher-bar';
+import { CueToast } from '@/components/visualizer/cue-toast';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -67,6 +68,13 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const [isOwner, setIsOwner] = useState(false);
   const [cues, setCues] = useState<CueSummary[]>([]);
   const [activeCueId, setActiveCueId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [setName, setSetName] = useState('');
+  const [setDescription, setSetDescription] = useState<string | null>(null);
+  const [setYoutubePlaylistUrl, setSetYoutubePlaylistUrl] = useState<string | null>(null);
+  const [setIsPublic, setSetIsPublic] = useState(false);
+  const cueFadeFrameRef = useRef<number | null>(null);
+  const switchCueRef = useRef<((cueId: string) => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper to keep configRef in sync with config state
@@ -115,6 +123,12 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
             if (setData.isOwner) {
               setIsOwner(true);
             }
+
+            // Store set metadata
+            setSetName(setData.name || '');
+            setSetDescription(setData.description ?? null);
+            setSetYoutubePlaylistUrl(setData.youtubePlaylistUrl ?? null);
+            setSetIsPublic(setData.isPublic ?? false);
 
             // Store cues for the switcher
             if (setData.cues && setData.cues.length > 0) {
@@ -192,6 +206,10 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     return () => {
       engine.dispose();
       engineRef.current = null;
+      if (cueFadeFrameRef.current) {
+        cancelAnimationFrame(cueFadeFrameRef.current);
+        cueFadeFrameRef.current = null;
+      }
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
         audioCtxRef.current = null;
@@ -243,6 +261,8 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     }
   }, []);
 
+  const dismissToast = useCallback(() => setToastMessage(null), []);
+
   // Auto-hide controls
   useEffect(() => {
     const handleMove = () => {
@@ -264,6 +284,16 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // 1-9: Switch cues by position
+      const digit = parseInt(e.key);
+      if (digit >= 1 && digit <= 9 && cues.length > 0) {
+        const sorted = [...cues].sort((a, b) => a.position - b.position);
+        const target = sorted[digit - 1];
+        if (target) switchCueRef.current?.(target.id);
+        return;
+      }
+
       switch (e.key.toLowerCase()) {
         case 'f':
           if (document.fullscreenElement) document.exitFullscreen();
@@ -294,7 +324,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showSettings, showHelp, initMicAudio, stopMicAudio]);
+  }, [showSettings, showHelp, initMicAudio, stopMicAudio, cues]);
 
   // Debounced save
   const saveConfig = useCallback(
@@ -370,7 +400,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     [saveConfig]
   );
 
-  // Cue switching
+  // Cue switching with palette crossfade
   const switchCue = useCallback(
     (cueId: string) => {
       if (cueId === activeCueIdRef.current) return;
@@ -382,28 +412,81 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       const cueData = cueDataRef.current.get(cueId);
       if (!cueData) return;
 
+      // Cancel any in-progress crossfade
+      if (cueFadeFrameRef.current) {
+        cancelAnimationFrame(cueFadeFrameRef.current);
+        cueFadeFrameRef.current = null;
+      }
+
       // Update active cue
       activeCueIdRef.current = cueId;
       setActiveCueId(cueId);
 
-      // Load the full config into the engine
       const cueConfig = cueData.config;
-      updateConfig(cueConfig);
-      engineRef.current?.updateConfig(cueConfig);
+      const oldPalette = configRef.current?.colorPalette;
+      const sceneChanged = configRef.current?.scene !== cueConfig.scene;
+
+      // Show toast
+      const matchingCue = cues.find((c) => c.id === cueId);
+      if (matchingCue) {
+        setToastMessage(`${matchingCue.position}. ${matchingCue.name}`);
+      }
+
+      // Apply non-palette config changes immediately
+      const configWithoutPalette = { ...cueConfig };
+      if (oldPalette && !sceneChanged) {
+        // Keep old palette temporarily for crossfade
+        configWithoutPalette.colorPalette = oldPalette;
+      }
+
+      updateConfig(sceneChanged ? cueConfig : configWithoutPalette);
+      engineRef.current?.updateConfig(sceneChanged ? cueConfig : configWithoutPalette);
       localStorage.setItem(`mirage-config-${id}`, JSON.stringify(cueConfig));
 
-      // Handle texture: load from cue's customTextureUrl
+      // Handle texture
       if (cueConfig.customTextureUrl) {
         engineRef.current?.loadTexture(cueConfig.customTextureUrl);
       } else {
         engineRef.current?.clearTexture();
       }
 
+      // Palette crossfade (skip if scene changed — it requires dispose+recreate anyway)
+      if (oldPalette && !sceneChanged) {
+        const startPalette = { ...oldPalette };
+        const targetPalette = cueConfig.colorPalette;
+        const startTime = performance.now();
+        const duration = 500;
+
+        const animateFade = (now: number) => {
+          const t = Math.min((now - startTime) / duration, 1);
+          const smoothT = t * t * (3 - 2 * t); // smoothstep
+          const lerped = lerpPalette(startPalette, targetPalette, smoothT);
+
+          const fadeConfig = { ...cueConfig, colorPalette: lerped };
+          updateConfig(fadeConfig);
+          engineRef.current?.updateConfig({ colorPalette: lerped });
+
+          if (t < 1) {
+            cueFadeFrameRef.current = requestAnimationFrame(animateFade);
+          } else {
+            cueFadeFrameRef.current = null;
+            // Ensure final state is exact target
+            updateConfig(cueConfig);
+            engineRef.current?.updateConfig({ colorPalette: targetPalette });
+          }
+        };
+
+        cueFadeFrameRef.current = requestAnimationFrame(animateFade);
+      }
+
       // Update URL without navigation
       history.replaceState(null, '', `/v/${id}?cue=${cueId}`);
     },
-    [id, flushSave, updateConfig]
+    [id, cues, flushSave, updateConfig]
   );
+
+  // Keep switchCueRef in sync (avoids stale closure in keyboard handler)
+  switchCueRef.current = switchCue;
 
   // Color cycling — uses configRef to avoid restarting the interval on every config change
   useEffect(() => {
@@ -512,8 +595,50 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       {showSettings && (
         <VisualizerSettingsPanel
           config={config}
-          setId={isNewSession ? undefined : id}
-          activeCueId={activeCueId ?? undefined}
+          setContext={
+            isNewSession
+              ? undefined
+              : {
+                  setId: id,
+                  activeCueId: activeCueId ?? undefined,
+                  isOwner,
+                  cues,
+                  cueConfigs: cueDataRef.current,
+                  onSwitchCue: switchCue,
+                  onCuesChange: (newCues) => setCues(newCues),
+                  onCueAdded: (cue, cueConfig) => {
+                    setCues((prev) => [...prev, cue]);
+                    cueDataRef.current.set(cue.id, { config: cueConfig, textureUrl: null });
+                    switchCue(cue.id);
+                  },
+                  onCueDeleted: (cueId) => {
+                    setCues((prev) => {
+                      const remaining = prev.filter((c) => c.id !== cueId);
+                      if (activeCueIdRef.current === cueId && remaining.length > 0) {
+                        const sorted = [...remaining].sort((a, b) => a.position - b.position);
+                        switchCue(sorted[0].id);
+                      }
+                      return remaining;
+                    });
+                    cueDataRef.current.delete(cueId);
+                  },
+                  onCueRenamed: (cueId, name) => {
+                    setCues((prev) => prev.map((c) => (c.id === cueId ? { ...c, name } : c)));
+                  },
+                  name: setName,
+                  description: setDescription,
+                  youtubePlaylistUrl: setYoutubePlaylistUrl,
+                  isPublic: setIsPublic,
+                  onMetadataChange: (fields) => {
+                    if (fields.name !== undefined) setSetName(fields.name);
+                    if (fields.description !== undefined)
+                      setSetDescription(fields.description ?? null);
+                    if (fields.youtubePlaylistUrl !== undefined)
+                      setSetYoutubePlaylistUrl(fields.youtubePlaylistUrl ?? null);
+                    if (fields.isPublic !== undefined) setSetIsPublic(fields.isPublic);
+                  },
+                }
+          }
           audioInputEnabled={audioEnabled}
           colorCycleEnabled={colorCycleEnabled}
           onToggleAudioInput={handleToggleAudio}
@@ -534,6 +659,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           onSwitchCue={switchCue}
         />
       )}
+
+      {/* Cue switch toast */}
+      <CueToast message={toastMessage} onDismiss={dismissToast} />
 
       {/* Help Modal - rendered at page level so it's not clipped by sidebar */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}

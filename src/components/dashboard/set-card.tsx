@@ -2,17 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import {
-  ChevronDown,
-  ExternalLink,
-  Pencil,
-  Trash2,
-  Globe,
-  Lock,
-  Copy,
-  Check,
-  Layers,
-} from 'lucide-react';
+import { ChevronDown, ExternalLink, Trash2, Globe, Lock, Copy, Check, Layers } from 'lucide-react';
 import { CuesList } from './cues-list';
 import type { CueResponse, SetListItem } from '@/types/api';
 
@@ -117,13 +107,6 @@ export function SetCard({ set, onDeleteClick }: SetCardProps) {
               title="Open in visualizer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-            <Link
-              href={`/dashboard/sets/${set.id}/edit`}
-              className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
-              title="Edit set"
-            >
-              <Pencil className="w-3.5 h-3.5" />
             </Link>
             <button
               onClick={() => onDeleteClick(set)}

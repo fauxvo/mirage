@@ -38,6 +38,14 @@ export const SCENE_CATEGORY_MAP: Record<string, string> = {
   'starburst-spin': 'immersive',
 };
 
+export const CATEGORY_COLORS: Record<string, string> = {
+  organic: 'bg-emerald-500/15 text-emerald-400/80 border-emerald-500/20',
+  cosmic: 'bg-purple-500/15 text-purple-400/80 border-purple-500/20',
+  geometric: 'bg-blue-500/15 text-blue-400/80 border-blue-500/20',
+  abstract: 'bg-amber-500/15 text-amber-400/80 border-amber-500/20',
+  immersive: 'bg-pink-500/15 text-pink-400/80 border-pink-500/20',
+};
+
 export function getSceneCategory(sceneId: string): string {
   if (sceneId.startsWith('starburst')) return 'immersive';
   return SCENE_CATEGORY_MAP[sceneId] || 'abstract';
