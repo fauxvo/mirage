@@ -2,20 +2,33 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ExternalLink, Trash2, Globe, Lock, Copy, Check, Layers } from 'lucide-react';
+import {
+  ChevronDown,
+  ExternalLink,
+  Pencil,
+  Trash2,
+  Globe,
+  Lock,
+  Copy,
+  Check,
+  Layers,
+} from 'lucide-react';
 import { CuesList } from './cues-list';
+import { SetEditModal } from './set-edit-modal';
 import type { CueResponse, SetListItem } from '@/types/api';
 
 interface SetCardProps {
   set: SetListItem;
   onDeleteClick: (set: SetListItem) => void;
+  onUpdate: (updated: SetListItem) => void;
 }
 
-export function SetCard({ set, onDeleteClick }: SetCardProps) {
+export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [cues, setCues] = useState<CueResponse[] | null>(null);
   const [loadingCues, setLoadingCues] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   async function handleToggle() {
     if (expanded) {
@@ -101,6 +114,13 @@ export function SetCard({ set, onDeleteClick }: SetCardProps) {
                 )}
               </button>
             )}
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
+              title="Edit set"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
             <Link
               href={`/v/${set.id}`}
               className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
@@ -147,6 +167,18 @@ export function SetCard({ set, onDeleteClick }: SetCardProps) {
             <div className="px-4 py-4 text-center text-xs text-white/20">No cues found.</div>
           )}
         </div>
+      )}
+
+      {/* Edit modal */}
+      {showEditModal && (
+        <SetEditModal
+          set={set}
+          onClose={() => setShowEditModal(false)}
+          onSaved={(updated) => {
+            setShowEditModal(false);
+            onUpdate(updated);
+          }}
+        />
       )}
     </div>
   );

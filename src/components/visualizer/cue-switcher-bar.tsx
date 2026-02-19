@@ -15,22 +15,31 @@ interface CueSwitcherBarProps {
   cues: CueSummary[];
   activeCueId: string | null;
   onSwitchCue: (cueId: string) => void;
+  /** Bottom offset in pixels (default 16) */
+  bottomOffset?: number;
 }
 
-export function CueSwitcherBar({ visible, cues, activeCueId, onSwitchCue }: CueSwitcherBarProps) {
+export function CueSwitcherBar({
+  visible,
+  cues,
+  activeCueId,
+  onSwitchCue,
+  bottomOffset = 16,
+}: CueSwitcherBarProps) {
   const sorted = [...cues].sort((a, b) => a.position - b.position);
 
   return (
     <div
       className={cn(
-        'fixed bottom-4 left-1/2 -translate-x-1/2 z-30',
+        'fixed left-1/2 -translate-x-1/2 z-30',
         'bg-black/60 backdrop-blur-xl rounded-full',
         'border border-white/10',
         'flex items-center gap-1 px-2 py-1.5',
         'max-w-[90vw] overflow-x-auto',
-        'transition-opacity duration-300',
+        'transition-all duration-300',
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       )}
+      style={{ bottom: bottomOffset }}
     >
       <Link
         href="/dashboard"

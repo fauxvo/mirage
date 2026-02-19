@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { use } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Settings, Maximize2, Volume2, VolumeX } from 'lucide-react';
@@ -10,6 +10,11 @@ import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-sett
 import { HelpModal } from '@/components/settings/help-modal';
 import { CueSwitcherBar, type CueSummary } from '@/components/visualizer/cue-switcher-bar';
 import { CueToast } from '@/components/visualizer/cue-toast';
+import {
+  YouTubePlayerBar,
+  type YouTubePlayerBarHandle,
+} from '@/components/visualizer/youtube-player-bar';
+import { extractPlaylistId } from '@/lib/youtube';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -73,9 +78,11 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const [setDescription, setSetDescription] = useState<string | null>(null);
   const [setYoutubePlaylistUrl, setSetYoutubePlaylistUrl] = useState<string | null>(null);
   const [setIsPublic, setSetIsPublic] = useState(false);
+  const [youtubeBarHeight, setYoutubeBarHeight] = useState(0);
   const cueFadeFrameRef = useRef<number | null>(null);
   const switchCueRef = useRef<((cueId: string) => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const youtubePlayerRef = useRef<YouTubePlayerBarHandle>(null);
 
   // Helper to keep configRef in sync with config state
   const updateConfig = useCallback((c: VisualizerConfig) => {
@@ -283,7 +290,29 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLButtonElement
+      )
+        return;
+
+      // YouTube controls: Space = play/pause, Shift+Arrow = next/prev
+      if (e.key === ' ' && youtubePlayerRef.current && setYoutubePlaylistUrl) {
+        e.preventDefault();
+        youtubePlayerRef.current.togglePlayPause();
+        return;
+      }
+      if (e.shiftKey && e.key === 'ArrowRight' && youtubePlayerRef.current) {
+        e.preventDefault();
+        youtubePlayerRef.current.nextTrack();
+        return;
+      }
+      if (e.shiftKey && e.key === 'ArrowLeft' && youtubePlayerRef.current) {
+        e.preventDefault();
+        youtubePlayerRef.current.prevTrack();
+        return;
+      }
 
       // 1-9: Switch cues by position
       const digit = parseInt(e.key);
@@ -324,7 +353,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showSettings, showHelp, initMicAudio, stopMicAudio, cues]);
+  }, [showSettings, showHelp, initMicAudio, stopMicAudio, cues, setYoutubePlaylistUrl]);
 
   // Debounced save
   const saveConfig = useCallback(
@@ -538,6 +567,11 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     [initMicAudio, stopMicAudio]
   );
 
+  const hasYoutubePlaylist = useMemo(
+    () => !isNewSession && !!setYoutubePlaylistUrl && !!extractPlaylistId(setYoutubePlaylistUrl),
+    [isNewSession, setYoutubePlaylistUrl]
+  );
+
   if (!config) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center">
@@ -650,6 +684,16 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         />
       )}
 
+      {/* YouTube player bar */}
+      {hasYoutubePlaylist && (
+        <YouTubePlayerBar
+          ref={youtubePlayerRef}
+          playlistUrl={setYoutubePlaylistUrl!}
+          visible={controlsVisible}
+          onBarHeightChange={setYoutubeBarHeight}
+        />
+      )}
+
       {/* Cue switcher bar */}
       {!isNewSession && cues.length > 0 && (
         <CueSwitcherBar
@@ -657,6 +701,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           cues={cues}
           activeCueId={activeCueId}
           onSwitchCue={switchCue}
+          bottomOffset={youtubeBarHeight > 0 ? youtubeBarHeight + 16 : 16}
         />
       )}
 
@@ -664,7 +709,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       <CueToast message={toastMessage} onDismiss={dismissToast} />
 
       {/* Help Modal - rendered at page level so it's not clipped by sidebar */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showHelp && (
+        <HelpModal onClose={() => setShowHelp(false)} hasYoutubePlaylist={hasYoutubePlaylist} />
+      )}
     </div>
   );
 }

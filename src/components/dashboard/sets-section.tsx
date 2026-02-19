@@ -121,7 +121,14 @@ export function SetsSection({ username }: { username: string }) {
       {!loading && sets.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {sets.map((set) => (
-            <SetCard key={set.id} set={set} onDeleteClick={setDeleteTarget} />
+            <SetCard
+              key={set.id}
+              set={set}
+              onDeleteClick={setDeleteTarget}
+              onUpdate={(updated) => {
+                setSets((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+              }}
+            />
           ))}
         </div>
       )}
