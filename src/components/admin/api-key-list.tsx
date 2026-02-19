@@ -2,8 +2,44 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, Plus } from 'lucide-react';
-import { KeyRevealModal } from './key-reveal-modal';
+import { Trash2, Plus, Copy, Check } from 'lucide-react';
+
+function KeyRevealModal({ rawKey, onClose }: { rawKey: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md mx-4 p-5 bg-neutral-900 border border-white/[0.08] rounded-xl space-y-4">
+        <h3 className="text-sm font-medium text-white/80">API Key Created</h3>
+        <p className="text-xs text-white/40">
+          Copy this key now. You won&apos;t be able to see it again.
+        </p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-white/70 font-mono break-all select-all">
+            {rawKey}
+          </code>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(rawKey);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="shrink-0 p-2 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+            title="Copy to clipboard"
+          >
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+          </button>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full px-4 py-2 bg-white text-black text-xs font-medium rounded-lg hover:bg-white/90 transition-all"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface ApiKey {
   id: string;

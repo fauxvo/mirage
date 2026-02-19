@@ -42,13 +42,19 @@ export async function uploadTexture(
     })
   );
 
-  // URL priority: S3_PUBLIC_URL (r2.dev / custom domain) > proxy route (R2/MinIO) > standard AWS URL
-  if (process.env.S3_PUBLIC_URL) {
-    return `${process.env.S3_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
-  }
+  // URL priority: proxy route (R2/MinIO, same-origin) > S3_PUBLIC_URL (CDN) > standard AWS URL
+  // When S3_ENDPOINT is set (R2/MinIO), always use the proxy route. Cross-origin URLs
+  // from S3_PUBLIC_URL can't be used as WebGL textures without CORS headers on the
+  // remote server, but the same-origin proxy works universally.
   if (process.env.S3_ENDPOINT) {
-    // R2/MinIO: use proxy route since buckets aren't publicly accessible by default
     return `/api/textures/${key}`;
+  }
+  if (process.env.S3_PUBLIC_URL) {
+    let publicUrl = process.env.S3_PUBLIC_URL.replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(publicUrl)) {
+      publicUrl = `https://${publicUrl}`;
+    }
+    return `${publicUrl}/${key}`;
   }
   return `https://${bucket}.s3.${process.env.S3_REGION || 'us-east-1'}.amazonaws.com/${key}`;
 }

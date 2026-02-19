@@ -32,10 +32,11 @@ const BURST_FRAGMENT = `
   uniform vec3 uAccent;
   uniform vec3 uBackground;
   uniform float uOffsetX;
+  uniform float uOffsetY;
   varying vec2 vUv;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, 0.0);
+    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, uOffsetY * 0.3);
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -161,6 +162,7 @@ export class StarburstSharpScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uBackground: { value: new THREE.Color(palette.background) },
         uOffsetX: { value: config.patternOffsetX ?? 0 },
+        uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
       depthWrite: false,
     });
@@ -219,6 +221,8 @@ export class StarburstSharpScene {
 
     const offsetX = this.config.patternOffsetX ?? 0;
     this.logoMesh.position.x = offsetX * 4.0;
+    const offsetY = this.config.patternOffsetY ?? 0;
+    this.logoMesh.position.y = offsetY * 4.0;
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -274,6 +278,10 @@ export class StarburstSharpScene {
       this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetX.value = config.patternOffsetX;
     }
+    if (config.patternOffsetY !== undefined) {
+      this.config = { ...this.config, ...config };
+      this.burstMaterial.uniforms.uOffsetY.value = config.patternOffsetY;
+    }
   }
 
   dispose(): void {
@@ -293,6 +301,7 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass extends ray reach, highs sharpen band edges',
   params: [],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
 };
 
 registerScene(

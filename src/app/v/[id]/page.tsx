@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { use } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Settings, Maximize2, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VisualizerEngine } from '@/components/visualizer/visualizer-engine';
 import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-settings-panel';
 import { HelpModal } from '@/components/settings/help-modal';
+import { CueSwitcherBar, type CueSummary } from '@/components/visualizer/cue-switcher-bar';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -38,27 +40,43 @@ function lerpPalette(
 
 export default function VisualizerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
   const isNewSession = id === 'new';
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<VisualizerEngine | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const colorCycleIndexRef = useRef(0);
   const lerpFrameRef = useRef<number | null>(null);
   const activeCueIdRef = useRef<string | null>(null);
+  // Store full cue data (config + textureUrl) for switching
+  const cueDataRef = useRef<Map<string, { config: VisualizerConfig; textureUrl: string | null }>>(
+    new Map()
+  );
 
   const [config, setConfig] = useState<VisualizerConfig | null>(null);
+  const configRef = useRef<VisualizerConfig | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [colorCycleEnabled, setColorCycleEnabled] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [cues, setCues] = useState<CueSummary[]>([]);
+  const [activeCueId, setActiveCueId] = useState<string | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Helper to keep configRef in sync with config state
+  const updateConfig = useCallback((c: VisualizerConfig) => {
+    configRef.current = c;
+    setConfig(c);
+  }, []);
+
   // Load set or defaults
+  const cueParam = searchParams.get('cue');
   useEffect(() => {
     async function load() {
       if (isNewSession) {
@@ -67,13 +85,13 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         const stored = localStorage.getItem(`mirage-config-${id}`);
         if (stored) {
           try {
-            setConfig(JSON.parse(stored));
+            updateConfig(JSON.parse(stored));
             return;
           } catch {
             /* ignore */
           }
         }
-        setConfig(buildDefaultConfig('particles'));
+        updateConfig(buildDefaultConfig('particles'));
         return;
       }
 
@@ -81,7 +99,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       const stored = localStorage.getItem(`mirage-config-${id}`);
       if (stored) {
         try {
-          setConfig(JSON.parse(stored));
+          updateConfig(JSON.parse(stored));
         } catch {
           /* ignore */
         }
@@ -98,15 +116,55 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
               setIsOwner(true);
             }
 
-            // Load first cue's config
+            // Store cues for the switcher
             if (setData.cues && setData.cues.length > 0) {
-              const firstCue = setData.cues.sort(
+              const sortedCues = [...setData.cues].sort(
                 (a: { position: number }, b: { position: number }) => a.position - b.position
-              )[0];
-              activeCueIdRef.current = firstCue.id;
-              const cueConfig = firstCue.config as VisualizerConfig;
-              setConfig(cueConfig);
+              );
+
+              // Build cue summaries and data map
+              const cueSummaries: CueSummary[] = sortedCues.map(
+                (c: { id: string; name: string; position: number }) => ({
+                  id: c.id,
+                  name: c.name,
+                  position: c.position,
+                })
+              );
+              setCues(cueSummaries);
+
+              // Build data map for cue switching
+              const dataMap = new Map<
+                string,
+                { config: VisualizerConfig; textureUrl: string | null }
+              >();
+              for (const cue of sortedCues) {
+                dataMap.set(cue.id, {
+                  config: cue.config as VisualizerConfig,
+                  textureUrl: (cue.textureUrl as string | null) ?? null,
+                });
+              }
+              cueDataRef.current = dataMap;
+
+              // Load the requested cue, or fall back to first
+              const targetCue =
+                (cueParam && sortedCues.find((c: { id: string }) => c.id === cueParam)) ||
+                sortedCues[0];
+
+              activeCueIdRef.current = targetCue.id;
+              setActiveCueId(targetCue.id);
+              const cueConfig = targetCue.config as VisualizerConfig;
+              updateConfig(cueConfig);
               localStorage.setItem(`mirage-config-${id}`, JSON.stringify(cueConfig));
+
+              // Sync engine if it was already initialized from stale cache
+              if (engineRef.current) {
+                engineRef.current.updateConfig(cueConfig);
+                if (cueConfig.customTextureUrl) {
+                  engineRef.current.loadTexture(cueConfig.customTextureUrl);
+                } else {
+                  engineRef.current.clearTexture();
+                }
+              }
               return;
             }
           }
@@ -117,11 +175,11 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
       // Default config if nothing loaded
       if (!stored) {
-        setConfig(buildDefaultConfig('particles'));
+        updateConfig(buildDefaultConfig('particles'));
       }
     }
     load();
-  }, [id, isNewSession]);
+  }, [id, isNewSession, cueParam, updateConfig]);
 
   // Initialize engine (no mic access until user enables audio)
   useEffect(() => {
@@ -138,6 +196,10 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         audioCtxRef.current.close();
         audioCtxRef.current = null;
       }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((t) => t.stop());
+        audioStreamRef.current = null;
+      }
     };
     // Only run on initial config load
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,6 +214,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
+        audioStreamRef.current = stream;
         const ctx = new AudioContext();
         audioCtxRef.current = ctx;
         const source = ctx.createMediaStreamSource(stream);
@@ -166,6 +229,18 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         setAudioEnabled(false);
         engineRef.current?.setAudioEnabled(false);
       });
+  }, []);
+
+  const stopMicAudio = useCallback(() => {
+    engineRef.current?.setAnalyser(null);
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((t) => t.stop());
+      audioStreamRef.current = null;
+    }
   }, []);
 
   // Auto-hide controls
@@ -205,6 +280,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
             const next = !prev;
             engineRef.current?.setAudioEnabled(next);
             if (next) initMicAudio();
+            else stopMicAudio();
             return next;
           });
           break;
@@ -218,7 +294,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showSettings, showHelp, initMicAudio]);
+  }, [showSettings, showHelp, initMicAudio, stopMicAudio]);
 
   // Debounced save
   const saveConfig = useCallback(
@@ -243,13 +319,41 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     [id, isNewSession, isOwner]
   );
 
+  // Flush any pending debounced save immediately
+  const flushSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    // Persist current config to the active cue right now
+    const currentConfig = configRef.current;
+    if (!isNewSession && isOwner && activeCueIdRef.current && currentConfig) {
+      // Update the cue data map with the latest config
+      const existing = cueDataRef.current.get(activeCueIdRef.current);
+      if (existing) {
+        cueDataRef.current.set(activeCueIdRef.current, {
+          ...existing,
+          config: currentConfig,
+        });
+      }
+
+      fetch(`/api/sets/${id}/cues/${activeCueIdRef.current}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: currentConfig }),
+      }).catch(() => {
+        /* ignore */
+      });
+    }
+  }, [id, isNewSession, isOwner]);
+
   const handleConfigUpdate = useCallback(
     (newConfig: VisualizerConfig) => {
-      setConfig(newConfig);
+      updateConfig(newConfig);
       engineRef.current?.updateConfig(newConfig);
       saveConfig(newConfig);
     },
-    [saveConfig]
+    [saveConfig, updateConfig]
   );
 
   const handleQuickChange = useCallback(
@@ -257,6 +361,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       setConfig((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, ...changes };
+        configRef.current = updated;
         engineRef.current?.updateConfig(changes);
         saveConfig(updated);
         return updated;
@@ -265,9 +370,44 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     [saveConfig]
   );
 
-  // Color cycling
+  // Cue switching
+  const switchCue = useCallback(
+    (cueId: string) => {
+      if (cueId === activeCueIdRef.current) return;
+
+      // Flush pending save for the current cue
+      flushSave();
+
+      // Load the target cue's config
+      const cueData = cueDataRef.current.get(cueId);
+      if (!cueData) return;
+
+      // Update active cue
+      activeCueIdRef.current = cueId;
+      setActiveCueId(cueId);
+
+      // Load the full config into the engine
+      const cueConfig = cueData.config;
+      updateConfig(cueConfig);
+      engineRef.current?.updateConfig(cueConfig);
+      localStorage.setItem(`mirage-config-${id}`, JSON.stringify(cueConfig));
+
+      // Handle texture: load from cue's customTextureUrl
+      if (cueConfig.customTextureUrl) {
+        engineRef.current?.loadTexture(cueConfig.customTextureUrl);
+      } else {
+        engineRef.current?.clearTexture();
+      }
+
+      // Update URL without navigation
+      history.replaceState(null, '', `/v/${id}?cue=${cueId}`);
+    },
+    [id, flushSave, updateConfig]
+  );
+
+  // Color cycling — uses configRef to avoid restarting the interval on every config change
   useEffect(() => {
-    if (!colorCycleEnabled || !config) {
+    if (!colorCycleEnabled || !configRef.current) {
       if (colorCycleRef.current) clearInterval(colorCycleRef.current);
       if (lerpFrameRef.current) cancelAnimationFrame(lerpFrameRef.current);
       return;
@@ -276,7 +416,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     colorCycleRef.current = setInterval(() => {
       colorCycleIndexRef.current = (colorCycleIndexRef.current + 1) % COLOR_PRESETS.length;
       const targetPalette = COLOR_PRESETS[colorCycleIndexRef.current].colors;
-      const startPalette = { ...config.colorPalette };
+      const currentPalette = configRef.current?.colorPalette;
+      if (!currentPalette) return;
+      const startPalette = { ...currentPalette };
       const startTime = performance.now();
       const duration = 1000; // 1s transition
 
@@ -298,15 +440,19 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       if (colorCycleRef.current) clearInterval(colorCycleRef.current);
       if (lerpFrameRef.current) cancelAnimationFrame(lerpFrameRef.current);
     };
-  }, [colorCycleEnabled, config, handleQuickChange]);
+  }, [colorCycleEnabled, handleQuickChange]);
 
   const handleToggleAudio = useCallback(
     (enabled: boolean) => {
       setAudioEnabled(enabled);
       engineRef.current?.setAudioEnabled(enabled);
-      if (enabled) initMicAudio();
+      if (enabled) {
+        initMicAudio();
+      } else {
+        stopMicAudio();
+      }
     },
-    [initMicAudio]
+    [initMicAudio, stopMicAudio]
   );
 
   if (!config) {
@@ -367,6 +513,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         <VisualizerSettingsPanel
           config={config}
           setId={isNewSession ? undefined : id}
+          activeCueId={activeCueId ?? undefined}
           audioInputEnabled={audioEnabled}
           colorCycleEnabled={colorCycleEnabled}
           onToggleAudioInput={handleToggleAudio}
@@ -375,6 +522,16 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           onQuickChange={handleQuickChange}
           onClose={() => setShowSettings(false)}
           onShowHelp={() => setShowHelp(true)}
+        />
+      )}
+
+      {/* Cue switcher bar */}
+      {!isNewSession && cues.length > 0 && (
+        <CueSwitcherBar
+          visible={controlsVisible}
+          cues={cues}
+          activeCueId={activeCueId}
+          onSwitchCue={switchCue}
         />
       )}
 

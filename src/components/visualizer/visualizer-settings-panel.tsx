@@ -25,6 +25,7 @@ import type { VisualizerConfig } from '@/types/visualizer';
 interface VisualizerSettingsPanelProps {
   config: VisualizerConfig;
   setId?: string;
+  activeCueId?: string;
   audioInputEnabled: boolean;
   colorCycleEnabled: boolean;
   onToggleAudioInput: (enabled: boolean) => void;
@@ -49,6 +50,7 @@ const TOP_LEVEL_PARAM_KEYS = new Set(['particleDensity', 'symmetry', 'wireframe'
 export function VisualizerSettingsPanel({
   config,
   setId,
+  activeCueId,
   audioInputEnabled,
   colorCycleEnabled,
   onToggleAudioInput,
@@ -156,11 +158,16 @@ export function VisualizerSettingsPanel({
     const formData = new FormData();
     formData.append('file', file);
 
+    const headers: Record<string, string> = {
+      'x-set-id': setId,
+    };
+    if (activeCueId) {
+      headers['x-cue-id'] = activeCueId;
+    }
+
     const res = await fetch('/api/upload', {
       method: 'POST',
-      headers: {
-        'x-set-id': setId,
-      },
+      headers,
       body: formData,
     });
 
@@ -231,6 +238,7 @@ export function VisualizerSettingsPanel({
   };
 
   const sceneMeta = getSceneMetadata(config.scene);
+  const sceneFeatures = new Set(sceneMeta?.features ?? []);
   const currentSceneMeta = allScenes.find((s) => s.id === config.scene);
 
   return (
@@ -689,45 +697,56 @@ export function VisualizerSettingsPanel({
           </p>
         </section>
 
-        {/* Texture Scale + Opacity - only shown when a texture is active */}
+        {/* Texture controls — only features the active scene declares */}
         {config.customTextureUrl && (
           <>
-            <SliderControl
-              label="Texture Size"
-              value={config.textureScale ?? 1.0}
-              min={0.2}
-              max={3}
-              step={0.1}
-              onChange={(v) => onQuickChange({ textureScale: v })}
-            />
-            <SliderControl
-              label="Texture Opacity"
-              value={config.textureOpacity ?? 1.0}
-              min={0}
-              max={1}
-              step={0.05}
-              onChange={(v) => onQuickChange({ textureOpacity: v })}
-            />
-            {/* Texture Animation - cycle button for starburst scenes */}
-            {config.scene.startsWith('starburst') && (
+            {sceneFeatures.has('textureScale') && (
+              <SliderControl
+                label="Texture Size"
+                value={config.textureScale ?? 1.0}
+                min={0.2}
+                max={3}
+                step={0.1}
+                onChange={(v) => onQuickChange({ textureScale: v })}
+              />
+            )}
+            {sceneFeatures.has('textureOpacity') && (
+              <SliderControl
+                label="Texture Opacity"
+                value={config.textureOpacity ?? 1.0}
+                min={0}
+                max={1}
+                step={0.05}
+                onChange={(v) => onQuickChange({ textureOpacity: v })}
+              />
+            )}
+            {sceneFeatures.has('textureAnimation') && (
               <TextureAnimationPicker
                 value={config.textureAnimation ?? 'none'}
                 onChange={(v) => onQuickChange({ textureAnimation: v })}
               />
             )}
+            {sceneFeatures.has('patternOffset') && (
+              <>
+                <SliderControl
+                  label="Pattern Offset X"
+                  value={config.patternOffsetX ?? 0}
+                  min={-1}
+                  max={1}
+                  step={0.05}
+                  onChange={(v) => onQuickChange({ patternOffsetX: v })}
+                />
+                <SliderControl
+                  label="Pattern Offset Y"
+                  value={config.patternOffsetY ?? 0}
+                  min={-1}
+                  max={1}
+                  step={0.05}
+                  onChange={(v) => onQuickChange({ patternOffsetY: v })}
+                />
+              </>
+            )}
           </>
-        )}
-
-        {/* Pattern Offset - starburst scenes only */}
-        {config.scene.startsWith('starburst') && (
-          <SliderControl
-            label="Pattern Offset"
-            value={config.patternOffsetX ?? 0}
-            min={-1}
-            max={1}
-            step={0.05}
-            onChange={(v) => onQuickChange({ patternOffsetX: v })}
-          />
         )}
 
         {/* Reset */}
