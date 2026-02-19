@@ -5,6 +5,7 @@ import { createSession } from '@/lib/auth/session';
 import { userRepository } from '@/db/repositories/user.repository';
 import { LoginSchema } from '@/lib/auth-schemas';
 import { successResponse, errorResponse } from '@/lib/api-utils';
+import { Logger } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   await ensureAdminSeeded();
@@ -13,25 +14,30 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
+    Logger.warn('Login: invalid JSON body');
     return errorResponse('Invalid JSON', 400);
   }
 
   const parsed = LoginSchema.safeParse(body);
   if (!parsed.success) {
+    Logger.warn('Login: schema validation failed');
     return errorResponse('Invalid credentials', 401);
   }
 
   const user = await userRepository.findByUsername(parsed.data.username);
   if (!user) {
+    Logger.warn('Login: user not found');
     return errorResponse('Invalid credentials', 401);
   }
 
   const valid = await compare(parsed.data.password, user.passwordHash);
   if (!valid) {
+    Logger.warn('Login: invalid password');
     return errorResponse('Invalid credentials', 401);
   }
 
   await createSession(user.id, user.username, user.role);
+  Logger.log(`Login: success for user: ${user.username} (${user.role})`);
 
   return successResponse({ userId: user.id, username: user.username, role: user.role });
 }
