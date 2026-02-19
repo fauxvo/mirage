@@ -29,10 +29,15 @@ export interface YouTubePlayerBarHandle {
   prevTrack: () => void;
 }
 
+/** Bar heights in pixels: collapsed = 32 (h-8), expanded = 64 (h-16) */
+const BAR_HEIGHT_COLLAPSED = 32;
+const BAR_HEIGHT_EXPANDED = 64;
+
 interface YouTubePlayerBarProps {
   playlistUrl: string;
   visible?: boolean;
-  onVisibilityChange?: (visible: boolean) => void;
+  /** Reports the bar's current height in px (0 on unmount, 32 collapsed, 64 expanded) */
+  onBarHeightChange?: (height: number) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -43,7 +48,7 @@ function formatTime(seconds: number): string {
 }
 
 export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayerBarProps>(
-  function YouTubePlayerBar({ playlistUrl, visible = true, onVisibilityChange }, ref) {
+  function YouTubePlayerBar({ playlistUrl, visible = true, onBarHeightChange }, ref) {
     const playerRef = useRef<YT.Player | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -71,11 +76,11 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
       }
     }, []);
 
-    // Notify parent of visibility changes (cleanup resets to false on unmount)
+    // Notify parent of bar height changes (cleanup reports 0 on unmount)
     useEffect(() => {
-      onVisibilityChange?.(!isCollapsed);
-      return () => onVisibilityChange?.(false);
-    }, [isCollapsed, onVisibilityChange]);
+      onBarHeightChange?.(isCollapsed ? BAR_HEIGHT_COLLAPSED : BAR_HEIGHT_EXPANDED);
+      return () => onBarHeightChange?.(0);
+    }, [isCollapsed, onBarHeightChange]);
 
     // Load YouTube IFrame API
     useEffect(() => {
@@ -225,6 +230,25 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
       [seekFromEvent]
     );
 
+    const handleSeekTouchStart = useCallback(
+      (e: React.TouchEvent<HTMLDivElement>) => {
+        const bar = e.currentTarget;
+        seekFromEvent(e.touches[0].clientX, bar);
+
+        const handleTouchMove = (ev: TouchEvent) => {
+          ev.preventDefault();
+          seekFromEvent(ev.touches[0].clientX, bar);
+        };
+        const handleTouchEnd = () => {
+          window.removeEventListener('touchmove', handleTouchMove);
+          window.removeEventListener('touchend', handleTouchEnd);
+        };
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd);
+      },
+      [seekFromEvent]
+    );
+
     const handleSeekKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (!playerRef.current || !duration) return;
@@ -244,7 +268,11 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
       setVolume(val);
       setIsMuted(val === 0);
       playerRef.current?.setVolume(val);
-      if (val > 0) playerRef.current?.unMute();
+      if (val > 0) {
+        playerRef.current?.unMute();
+      } else {
+        playerRef.current?.mute();
+      }
     }, []);
 
     const toggleMute = useCallback(() => {
@@ -391,6 +419,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     tabIndex={0}
                     className="flex-1 h-1 bg-white/10 rounded-full cursor-pointer group relative"
                     onMouseDown={handleSeekMouseDown}
+                    onTouchStart={handleSeekTouchStart}
                     onKeyDown={handleSeekKeyDown}
                   >
                     <div

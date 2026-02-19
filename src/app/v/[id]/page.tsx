@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { use } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Settings, Maximize2, Volume2, VolumeX } from 'lucide-react';
@@ -78,7 +78,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const [setDescription, setSetDescription] = useState<string | null>(null);
   const [setYoutubePlaylistUrl, setSetYoutubePlaylistUrl] = useState<string | null>(null);
   const [setIsPublic, setSetIsPublic] = useState(false);
-  const [youtubeBarVisible, setYoutubeBarVisible] = useState(false);
+  const [youtubeBarHeight, setYoutubeBarHeight] = useState(0);
   const cueFadeFrameRef = useRef<number | null>(null);
   const switchCueRef = useRef<((cueId: string) => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -567,6 +567,11 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     [initMicAudio, stopMicAudio]
   );
 
+  const hasYoutubePlaylist = useMemo(
+    () => !isNewSession && !!setYoutubePlaylistUrl && !!extractPlaylistId(setYoutubePlaylistUrl),
+    [isNewSession, setYoutubePlaylistUrl]
+  );
+
   if (!config) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center">
@@ -574,9 +579,6 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
-
-  const hasYoutubePlaylist =
-    !isNewSession && !!setYoutubePlaylistUrl && !!extractPlaylistId(setYoutubePlaylistUrl);
 
   return (
     <div
@@ -688,7 +690,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           ref={youtubePlayerRef}
           playlistUrl={setYoutubePlaylistUrl!}
           visible={controlsVisible}
-          onVisibilityChange={setYoutubeBarVisible}
+          onBarHeightChange={setYoutubeBarHeight}
         />
       )}
 
@@ -699,7 +701,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           cues={cues}
           activeCueId={activeCueId}
           onSwitchCue={switchCue}
-          bottomOffset={youtubeBarVisible ? 'bottom-20' : 'bottom-4'}
+          bottomOffset={youtubeBarHeight > 0 ? youtubeBarHeight + 16 : 16}
         />
       )}
 

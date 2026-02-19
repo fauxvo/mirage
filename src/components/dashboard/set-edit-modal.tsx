@@ -95,10 +95,14 @@ export function SetEditModal({ set, onClose, onSaved }: SetEditModalProps) {
         {/* Fields */}
         <div className="space-y-3">
           <div>
-            <label className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5">
+            <label
+              htmlFor="edit-set-name"
+              className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5"
+            >
               Name
             </label>
             <input
+              id="edit-set-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -109,10 +113,14 @@ export function SetEditModal({ set, onClose, onSaved }: SetEditModalProps) {
           </div>
 
           <div>
-            <label className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5">
+            <label
+              htmlFor="edit-set-description"
+              className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5"
+            >
               Description
             </label>
             <textarea
+              id="edit-set-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={saving}
@@ -123,10 +131,14 @@ export function SetEditModal({ set, onClose, onSaved }: SetEditModalProps) {
           </div>
 
           <div>
-            <label className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5">
+            <label
+              htmlFor="edit-set-youtube-url"
+              className="block text-[10px] font-medium text-white/30 uppercase tracking-wide mb-1.5"
+            >
               YouTube Playlist URL
             </label>
             <input
+              id="edit-set-youtube-url"
               type="url"
               value={youtubePlaylistUrl}
               onChange={(e) => setYoutubePlaylistUrl(e.target.value)}
