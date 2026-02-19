@@ -19,6 +19,9 @@ export interface SceneParamDef {
   options?: string[];
 }
 
+/** Optional feature flags a scene can declare to surface extra controls. */
+export type SceneFeature = 'textureScale' | 'textureOpacity' | 'textureAnimation' | 'patternOffset';
+
 export interface SceneRegistration {
   id: string;
   name: string;
@@ -26,4 +29,6 @@ export interface SceneRegistration {
   category: string;
   audioDescription: string;
   params: SceneParamDef[];
+  /** Features beyond basic texture support that this scene handles. */
+  features?: SceneFeature[];
 }

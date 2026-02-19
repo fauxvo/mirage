@@ -25,7 +25,6 @@ export const SCENE_CATEGORY_MAP: Record<string, string> = {
   voronoi: 'geometric',
   // Abstract
   fractal: 'abstract',
-  dna: 'abstract',
   matrix: 'abstract',
   waveform: 'abstract',
   // Immersive

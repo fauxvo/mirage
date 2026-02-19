@@ -97,12 +97,16 @@ export class VisualizerEngine {
     this.customTextureUrl = dataUrl;
 
     const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
     loader.load(
       dataUrl,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
+        // Apply pattern offset from config
+        texture.offset.x = this.config.patternOffsetX ?? 0;
+        texture.offset.y = this.config.patternOffsetY ?? 0;
         this.customTexture = texture;
         this.sceneHandler?.setTexture?.(texture);
       },
@@ -157,9 +161,11 @@ export class VisualizerEngine {
     }
   }
 
-  setAnalyser(analyser: AnalyserNode): void {
+  setAnalyser(analyser: AnalyserNode | null): void {
     this.analyser = analyser;
-    this.dataArray = new Uint8Array(analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
+    this.dataArray = analyser
+      ? (new Uint8Array(analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>)
+      : null;
   }
 
   setAudioEnabled(enabled: boolean): void {
@@ -263,6 +269,24 @@ export class VisualizerEngine {
         this.clearCustomTexture();
       }
     }
+
+    // Update texture offset (universal — works for all scenes via UV offset)
+    if (this.customTexture) {
+      if (newConfig.patternOffsetX !== undefined) {
+        this.customTexture.offset.x = newConfig.patternOffsetX;
+      }
+      if (newConfig.patternOffsetY !== undefined) {
+        this.customTexture.offset.y = newConfig.patternOffsetY;
+      }
+    }
+  }
+
+  loadTexture(url: string): void {
+    this.loadCustomTexture(url);
+  }
+
+  clearTexture(): void {
+    this.clearCustomTexture();
   }
 
   start(): void {

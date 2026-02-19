@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DndContext,
   closestCenter,
@@ -21,9 +22,10 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Pencil, Trash2, Plus } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { DeleteConfirmModal } from './delete-confirm-modal';
 import { getSceneCategory } from '@/constants/scene-categories';
+import { buildDefaultConfig } from '@/constants/visualizer-presets';
 import type { CueResponse } from '@/types/api';
 
 interface CuesListProps {
@@ -102,7 +104,7 @@ function SortableCueRow({
       {/* Actions */}
       <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Link
-          href={`/dashboard/sets/${setId}/cues/${cue.id}/edit`}
+          href={`/v/${setId}?cue=${cue.id}`}
           className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
           title="Edit cue"
         >
@@ -143,11 +145,13 @@ function CueRowOverlay({ cue }: { cue: CueResponse }) {
 }
 
 export function CuesList({ setId, cues, onCuesChange }: CuesListProps) {
+  const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<CueResponse | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -238,15 +242,39 @@ export function CuesList({ setId, cues, onCuesChange }: CuesListProps) {
         <DragOverlay>{activeCue ? <CueRowOverlay cue={activeCue} /> : null}</DragOverlay>
       </DndContext>
 
-      {/* Add cue link */}
+      {/* Add cue */}
       <div className="px-3 py-2.5 border-t border-white/[0.04]">
-        <Link
-          href={`/dashboard/sets/${setId}/cues/new`}
-          className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-white/50 transition-colors"
+        <button
+          disabled={creating}
+          onClick={async () => {
+            setCreating(true);
+            try {
+              const name = `Cue ${cues.length + 1}`;
+              const config = buildDefaultConfig('particles');
+              const res = await fetch(`/api/sets/${setId}/cues`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, config }),
+              });
+              const data = await res.json();
+              if (data.success && data.data?.id) {
+                router.push(`/v/${setId}?cue=${data.data.id}`);
+              } else {
+                setCreating(false);
+              }
+            } catch {
+              setCreating(false);
+            }
+          }}
+          className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-white/50 transition-colors disabled:opacity-50"
         >
-          <Plus className="w-3.5 h-3.5" />
+          {creating ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Plus className="w-3.5 h-3.5" />
+          )}
           Add Cue
-        </Link>
+        </button>
       </div>
 
       {/* Delete error inline */}

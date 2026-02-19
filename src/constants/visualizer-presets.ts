@@ -164,6 +164,7 @@ export function buildDefaultConfig(
     textureOpacity: 1.0,
     textureAnimation: 'none',
     patternOffsetX: 0,
+    patternOffsetY: 0,
     sceneParams: {},
     ...overrides,
   };
