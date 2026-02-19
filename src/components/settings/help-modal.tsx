@@ -208,6 +208,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
                   ['H', 'Toggle help guide'],
                   ['Esc', 'Close settings / help or exit fullscreen'],
                   ['M', 'Toggle mic audio on/off'],
+                  ['1-9', 'Switch to cue by position (when viewing a set)'],
                 ]}
               />
             </HelpContent>

@@ -21,6 +21,16 @@
   animation: slide-in-right 0.2s ease-out;
 }
 
+/* Hide scrollbar but keep scroll functionality (overlay panels) */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* Scrollbar styling - minimal and sleek */
 ::-webkit-scrollbar {
   width: 6px;

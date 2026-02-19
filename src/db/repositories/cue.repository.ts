@@ -60,13 +60,13 @@ export class CueRepository {
     await this.db.delete(cues).where(eq(cues.id, id));
   }
 
-  async reorder(items: { id: string; position: number }[]) {
-    await this.db.transaction(async (tx) => {
+  reorder(items: { id: string; position: number }[]) {
+    this.db.transaction((tx) => {
       for (const item of items) {
-        await tx
-          .update(cues)
+        tx.update(cues)
           .set({ position: item.position, updatedAt: new Date() })
-          .where(eq(cues.id, item.id));
+          .where(eq(cues.id, item.id))
+          .run();
       }
     });
   }

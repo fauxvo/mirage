@@ -20,7 +20,12 @@ import {
 } from '@/components/visualizer/scenes/scene-registry';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import { SliderControl, TextureAnimationPicker } from '@/components/settings/slider-control';
+import { CueManagementPanel } from '@/components/visualizer/cue-management-panel';
+import { SetSettingsPanel } from '@/components/visualizer/set-settings-panel';
+import type { CueSummary } from '@/components/visualizer/cue-switcher-bar';
 import type { VisualizerConfig } from '@/types/visualizer';
+
+type SettingsTab = 'scene' | 'cues' | 'set';
 
 interface VisualizerSettingsPanelProps {
   config: VisualizerConfig;
@@ -34,6 +39,26 @@ interface VisualizerSettingsPanelProps {
   onQuickChange: (changes: Partial<VisualizerConfig>) => void;
   onClose: () => void;
   onShowHelp: () => void;
+  // Cue management props (only used when setId is present)
+  cues?: CueSummary[];
+  cueConfigs?: Map<string, { config: VisualizerConfig; textureUrl: string | null }>;
+  onSwitchCue?: (cueId: string) => void;
+  onCuesChange?: (cues: CueSummary[]) => void;
+  onCueAdded?: (cue: CueSummary, config: VisualizerConfig) => void;
+  onCueDeleted?: (cueId: string) => void;
+  onCueRenamed?: (cueId: string, name: string) => void;
+  // Set settings props
+  setName?: string;
+  setDescription?: string | null;
+  setYoutubePlaylistUrl?: string | null;
+  setIsPublic?: boolean;
+  isOwner?: boolean;
+  onSetMetadataChange?: (fields: {
+    name?: string;
+    description?: string | null;
+    youtubePlaylistUrl?: string | null;
+    isPublic?: boolean;
+  }) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -59,7 +84,21 @@ export function VisualizerSettingsPanel({
   onQuickChange,
   onClose,
   onShowHelp,
+  cues,
+  cueConfigs,
+  onSwitchCue,
+  onCuesChange,
+  onCueAdded,
+  onCueDeleted,
+  onCueRenamed,
+  setName,
+  setDescription,
+  setYoutubePlaylistUrl,
+  setIsPublic,
+  isOwner,
+  onSetMetadataChange,
 }: VisualizerSettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('scene');
   const [textureError, setTextureError] = useState<string | null>(null);
   const [textureUploading, setTextureUploading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(false);
@@ -270,119 +309,205 @@ export function VisualizerSettingsPanel({
         </div>
       </div>
 
+      {/* Tab bar — only show tabs when viewing a set */}
+      {setId && (
+        <div className="flex border-b border-white/10">
+          {(['scene', 'cues', 'set'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors',
+                activeTab === tab
+                  ? 'text-white/90 border-b-2 border-white/60'
+                  : 'text-white/40 hover:text-white/60'
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Share URL — only shown for saved sets */}
-        {setId && (
-          <section>
-            <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
-              Share Set
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white/50 font-mono truncate">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/v/{setId}
-              </div>
-              <button
-                onClick={handleCopyUrl}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 hover:text-white transition-colors"
-                title="Copy URL"
-              >
-                {copiedUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </section>
+      <div className="flex-1 overflow-y-auto scrollbar-hidden p-4 space-y-6">
+        {/* Cues tab */}
+        {activeTab === 'cues' &&
+          setId &&
+          cues &&
+          onSwitchCue &&
+          onCuesChange &&
+          onCueAdded &&
+          onCueDeleted &&
+          onCueRenamed &&
+          cueConfigs && (
+            <CueManagementPanel
+              setId={setId}
+              cues={cues}
+              activeCueId={activeCueId}
+              cueConfigs={cueConfigs}
+              onSwitchCue={onSwitchCue}
+              onCuesChange={onCuesChange}
+              onCueAdded={onCueAdded}
+              onCueDeleted={onCueDeleted}
+              onCueRenamed={onCueRenamed}
+            />
+          )}
+
+        {/* Set tab */}
+        {activeTab === 'set' && setId && setName !== undefined && onSetMetadataChange && (
+          <SetSettingsPanel
+            setId={setId}
+            name={setName ?? ''}
+            description={setDescription ?? null}
+            youtubePlaylistUrl={setYoutubePlaylistUrl ?? null}
+            isPublic={setIsPublic ?? false}
+            isOwner={isOwner ?? false}
+            onMetadataChange={onSetMetadataChange}
+          />
         )}
 
-        {/* Scene Type - Category Grid */}
-        <section>
-          <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
-            Scene Type
-          </label>
-          {currentSceneMeta && (
-            <div className="mb-2 px-2.5 py-1.5 bg-white/5 rounded-lg">
-              <p className="text-white text-xs font-medium">{currentSceneMeta.name}</p>
-              <p className="text-white/40 text-[10px] leading-tight mt-0.5">
-                {currentSceneMeta.audioDescription}
-              </p>
-            </div>
-          )}
-          <div className="space-y-1">
-            {categories.map((category) => {
-              const scenes = allScenes.filter((s) => s.category === category);
-              const isExpanded = expandedCategories.has(category);
-              const hasSelected = scenes.some((s) => s.id === config.scene);
-
-              return (
-                <div key={category}>
+        {/* Scene tab (existing controls) */}
+        {activeTab === 'scene' && (
+          <>
+            {/* Share URL — only shown for saved sets */}
+            {setId && (
+              <section>
+                <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                  Share Set
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white/50 font-mono truncate">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/v/{setId}
+                  </div>
                   <button
-                    onClick={() => toggleCategory(category)}
-                    className={cn(
-                      'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10px] font-medium uppercase tracking-wider transition-colors',
-                      hasSelected
-                        ? 'bg-white/15 text-white'
-                        : 'bg-white/5 text-white/40 hover:text-white/60'
-                    )}
+                    onClick={handleCopyUrl}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 hover:text-white transition-colors"
+                    title="Copy URL"
                   >
-                    <span>{CATEGORY_LABELS[category] ?? category}</span>
-                    {isExpanded ? (
-                      <ChevronDown className="w-3 h-3" />
+                    {copiedUrl ? (
+                      <Check className="w-3.5 h-3.5" />
                     ) : (
-                      <ChevronRight className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5" />
                     )}
                   </button>
-                  {isExpanded && (
-                    <div className="grid grid-cols-2 gap-1 mt-1 mb-1">
-                      {scenes.map((scene) => (
-                        <button
-                          key={scene.id}
-                          onClick={() => onQuickChange({ scene: scene.id })}
-                          className={cn(
-                            'px-2 py-1.5 rounded-lg text-xs font-medium transition-all text-left',
-                            config.scene === scene.id
-                              ? 'bg-white/20 text-white border border-white/30'
-                              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-transparent'
-                          )}
-                        >
-                          {scene.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              </section>
+            )}
 
-        {/* Color Presets */}
-        <section>
-          <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
-            Color Preset
-          </label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {COLOR_PRESETS.map((preset) => {
-              const isActive =
-                config.colorPalette.primary === preset.colors.primary &&
-                config.colorPalette.secondary === preset.colors.secondary &&
-                config.colorPalette.accent === preset.colors.accent &&
-                config.colorPalette.background === preset.colors.background;
+            {/* Scene Type - Category Grid */}
+            <section>
+              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                Scene Type
+              </label>
+              {currentSceneMeta && (
+                <div className="mb-2 px-2.5 py-1.5 bg-white/5 rounded-lg">
+                  <p className="text-white text-xs font-medium">{currentSceneMeta.name}</p>
+                  <p className="text-white/40 text-[10px] leading-tight mt-0.5">
+                    {currentSceneMeta.audioDescription}
+                  </p>
+                </div>
+              )}
+              <div className="space-y-1">
+                {categories.map((category) => {
+                  const scenes = allScenes.filter((s) => s.category === category);
+                  const isExpanded = expandedCategories.has(category);
+                  const hasSelected = scenes.some((s) => s.id === config.scene);
 
-              return (
+                  return (
+                    <div key={category}>
+                      <button
+                        onClick={() => toggleCategory(category)}
+                        className={cn(
+                          'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10px] font-medium uppercase tracking-wider transition-colors',
+                          hasSelected
+                            ? 'bg-white/15 text-white'
+                            : 'bg-white/5 text-white/40 hover:text-white/60'
+                        )}
+                      >
+                        <span>{CATEGORY_LABELS[category] ?? category}</span>
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3" />
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <div className="grid grid-cols-2 gap-1 mt-1 mb-1">
+                          {scenes.map((scene) => (
+                            <button
+                              key={scene.id}
+                              onClick={() => onQuickChange({ scene: scene.id })}
+                              className={cn(
+                                'px-2 py-1.5 rounded-lg text-xs font-medium transition-all text-left',
+                                config.scene === scene.id
+                                  ? 'bg-white/20 text-white border border-white/30'
+                                  : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-transparent'
+                              )}
+                            >
+                              {scene.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Color Presets */}
+            <section>
+              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                Color Preset
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {COLOR_PRESETS.map((preset) => {
+                  const isActive =
+                    config.colorPalette.primary === preset.colors.primary &&
+                    config.colorPalette.secondary === preset.colors.secondary &&
+                    config.colorPalette.accent === preset.colors.accent &&
+                    config.colorPalette.background === preset.colors.background;
+
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        onQuickChange({ colorPalette: preset.colors });
+                        setShowCustomColors(false);
+                      }}
+                      className={cn(
+                        'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all',
+                        isActive && !showCustomColors
+                          ? 'bg-white/20 border border-white/30'
+                          : 'bg-white/5 border border-transparent hover:bg-white/10'
+                      )}
+                    >
+                      <div className="flex gap-0.5 shrink-0">
+                        {Object.values(preset.colors).map((color, i) => (
+                          <div
+                            key={i}
+                            className="w-3 h-3 rounded-full border border-white/10"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-white/60 truncate">{preset.name}</span>
+                    </button>
+                  );
+                })}
+                {/* Custom toggle */}
                 <button
-                  key={preset.id}
-                  onClick={() => {
-                    onQuickChange({ colorPalette: preset.colors });
-                    setShowCustomColors(false);
-                  }}
+                  onClick={() => setShowCustomColors(!showCustomColors)}
                   className={cn(
                     'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all',
-                    isActive && !showCustomColors
+                    showCustomColors
                       ? 'bg-white/20 border border-white/30'
                       : 'bg-white/5 border border-transparent hover:bg-white/10'
                   )}
                 >
                   <div className="flex gap-0.5 shrink-0">
-                    {Object.values(preset.colors).map((color, i) => (
+                    {Object.values(config.colorPalette).map((color, i) => (
                       <div
                         key={i}
                         className="w-3 h-3 rounded-full border border-white/10"
@@ -390,383 +515,363 @@ export function VisualizerSettingsPanel({
                       />
                     ))}
                   </div>
-                  <span className="text-[10px] text-white/60 truncate">{preset.name}</span>
+                  <span className="text-[10px] text-white/60 truncate">Custom</span>
                 </button>
-              );
-            })}
-            {/* Custom toggle */}
-            <button
-              onClick={() => setShowCustomColors(!showCustomColors)}
-              className={cn(
-                'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all',
-                showCustomColors
-                  ? 'bg-white/20 border border-white/30'
-                  : 'bg-white/5 border border-transparent hover:bg-white/10'
-              )}
-            >
-              <div className="flex gap-0.5 shrink-0">
-                {Object.values(config.colorPalette).map((color, i) => (
-                  <div
-                    key={i}
-                    className="w-3 h-3 rounded-full border border-white/10"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
               </div>
-              <span className="text-[10px] text-white/60 truncate">Custom</span>
-            </button>
-          </div>
-          {/* Custom color pickers */}
-          {showCustomColors && (
-            <div className="mt-2 space-y-2 p-2.5 bg-white/5 rounded-lg">
-              {(
-                [
-                  ['primary', 'Primary'],
-                  ['secondary', 'Secondary'],
-                  ['accent', 'Accent'],
-                  ['background', 'Background'],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <label className="text-white/50 text-[10px] font-medium">{label}</label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/30 text-[10px] font-mono">
-                      {config.colorPalette[key]}
-                    </span>
-                    <input
-                      type="color"
-                      value={config.colorPalette[key]}
-                      onChange={(e) =>
-                        onQuickChange({
-                          colorPalette: { ...config.colorPalette, [key]: e.target.value },
-                        })
-                      }
-                      className="w-6 h-6 rounded border border-white/20 bg-transparent cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-none"
-                    />
-                  </div>
+              {/* Custom color pickers */}
+              {showCustomColors && (
+                <div className="mt-2 space-y-2 p-2.5 bg-white/5 rounded-lg">
+                  {(
+                    [
+                      ['primary', 'Primary'],
+                      ['secondary', 'Secondary'],
+                      ['accent', 'Accent'],
+                      ['background', 'Background'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <label className="text-white/50 text-[10px] font-medium">{label}</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/30 text-[10px] font-mono">
+                          {config.colorPalette[key]}
+                        </span>
+                        <input
+                          type="color"
+                          value={config.colorPalette[key]}
+                          onChange={(e) =>
+                            onQuickChange({
+                              colorPalette: { ...config.colorPalette, [key]: e.target.value },
+                            })
+                          }
+                          className="w-6 h-6 rounded border border-white/20 bg-transparent cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-          {/* Color Cycle Toggle */}
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <label className="text-white/50 text-[10px] font-medium">Auto-Cycle Colors</label>
-              <p className="text-white/25 text-[9px] mt-0.5">
-                {colorCycleEnabled ? 'Cycling every 8s' : 'Rotate through all presets'}
-              </p>
-            </div>
-            <button
-              onClick={() => onToggleColorCycle(!colorCycleEnabled)}
-              className={cn(
-                'w-10 h-5 rounded-full transition-colors relative shrink-0',
-                colorCycleEnabled ? 'bg-white/30' : 'bg-white/10'
               )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-                  colorCycleEnabled ? 'translate-x-[20px]' : 'translate-x-0'
-                )}
-              />
-            </button>
-          </div>
-        </section>
-
-        {/* Audio Input Toggle */}
-        <section>
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                Audio Input
-              </label>
-              <p className="text-white/30 text-[10px] mt-0.5">
-                {audioInputEnabled ? 'Visuals react to music' : 'Calm ambient animations'}
-              </p>
-            </div>
-            <button
-              onClick={() => onToggleAudioInput(!audioInputEnabled)}
-              className={cn(
-                'w-10 h-5 rounded-full transition-colors relative shrink-0',
-                audioInputEnabled ? 'bg-white/30' : 'bg-white/10'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-                  audioInputEnabled ? 'translate-x-[20px]' : 'translate-x-0'
-                )}
-              />
-            </button>
-          </div>
-        </section>
-
-        {/* Bloom Intensity */}
-        <SliderControl
-          label="Bloom Intensity"
-          value={config.bloomIntensity}
-          min={0}
-          max={3}
-          step={0.1}
-          onChange={(v) => onQuickChange({ bloomIntensity: v })}
-        />
-
-        {/* Audio Reactivity - only meaningful when audio input is on */}
-        {audioInputEnabled && (
-          <SliderControl
-            label="Audio Reactivity"
-            value={config.audioReactivity}
-            min={0}
-            max={1}
-            step={0.05}
-            onChange={(v) => onQuickChange({ audioReactivity: v })}
-          />
-        )}
-
-        {/* Animation Speed */}
-        <SliderControl
-          label="Animation Speed"
-          value={config.animationSpeed}
-          min={0.5}
-          max={2}
-          step={0.1}
-          onChange={(v) => onQuickChange({ animationSpeed: v })}
-        />
-
-        {/* Dynamic per-scene controls from metadata */}
-        {sceneMeta?.params.map((param) => {
-          // Backward-compatible: particleDensity, symmetry, wireframe use top-level config
-          if (TOP_LEVEL_PARAM_KEYS.has(param.key)) {
-            if (param.type === 'slider') {
-              const configKey = param.key as keyof VisualizerConfig;
-              return (
-                <SliderControl
-                  key={param.key}
-                  label={param.label}
-                  value={(config[configKey] as number) ?? (param.default as number)}
-                  min={param.min!}
-                  max={param.max!}
-                  step={param.step!}
-                  onChange={(v) => onQuickChange({ [param.key]: v })}
-                />
-              );
-            }
-            if (param.type === 'toggle') {
-              const configKey = param.key as keyof VisualizerConfig;
-              const currentValue = (config[configKey] as boolean) ?? (param.default as boolean);
-              return (
-                <section key={param.key}>
-                  <div className="flex items-center justify-between">
-                    <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                      {param.label}
-                    </label>
-                    <button
-                      onClick={() => onQuickChange({ [param.key]: !currentValue })}
-                      className={cn(
-                        'w-10 h-5 rounded-full transition-colors relative shrink-0',
-                        currentValue ? 'bg-white/30' : 'bg-white/10'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-                          currentValue ? 'translate-x-[20px]' : 'translate-x-0'
-                        )}
-                      />
-                    </button>
-                  </div>
-                </section>
-              );
-            }
-            return null;
-          }
-
-          // Non-top-level params use sceneParams
-          if (param.type === 'slider') {
-            return (
-              <SliderControl
-                key={param.key}
-                label={param.label}
-                value={(config.sceneParams?.[param.key] as number) ?? (param.default as number)}
-                min={param.min!}
-                max={param.max!}
-                step={param.step!}
-                onChange={(v) =>
-                  onQuickChange({
-                    sceneParams: { ...config.sceneParams, [param.key]: v },
-                  })
-                }
-              />
-            );
-          }
-          if (param.type === 'toggle') {
-            const currentValue =
-              (config.sceneParams?.[param.key] as boolean) ?? (param.default as boolean);
-            return (
-              <section key={param.key}>
-                <div className="flex items-center justify-between">
-                  <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                    {param.label}
-                  </label>
-                  <button
-                    onClick={() =>
-                      onQuickChange({
-                        sceneParams: { ...config.sceneParams, [param.key]: !currentValue },
-                      })
-                    }
+              {/* Color Cycle Toggle */}
+              <div className="mt-2 flex items-center justify-between">
+                <div>
+                  <label className="text-white/50 text-[10px] font-medium">Auto-Cycle Colors</label>
+                  <p className="text-white/25 text-[9px] mt-0.5">
+                    {colorCycleEnabled ? 'Cycling every 8s' : 'Rotate through all presets'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onToggleColorCycle(!colorCycleEnabled)}
+                  className={cn(
+                    'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                    colorCycleEnabled ? 'bg-white/30' : 'bg-white/10'
+                  )}
+                >
+                  <span
                     className={cn(
-                      'w-10 h-5 rounded-full transition-colors relative shrink-0',
-                      currentValue ? 'bg-white/30' : 'bg-white/10'
+                      'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                      colorCycleEnabled ? 'translate-x-[20px]' : 'translate-x-0'
                     )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-                        currentValue ? 'translate-x-[20px]' : 'translate-x-0'
-                      )}
-                    />
-                  </button>
+                  />
+                </button>
+              </div>
+            </section>
+
+            {/* Audio Input Toggle */}
+            <section>
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                    Audio Input
+                  </label>
+                  <p className="text-white/30 text-[10px] mt-0.5">
+                    {audioInputEnabled ? 'Visuals react to music' : 'Calm ambient animations'}
+                  </p>
                 </div>
-              </section>
-            );
-          }
-          return null;
-        })}
-
-        {/* Custom Texture */}
-        <section>
-          <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
-            Custom Texture
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleTextureUpload}
-            className="hidden"
-          />
-          {config.customTextureUrl ? (
-            <div className="space-y-2">
-              <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={config.customTextureUrl}
-                  alt="Custom texture"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="flex gap-2">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => onToggleAudioInput(!audioInputEnabled)}
+                  className={cn(
+                    'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                    audioInputEnabled ? 'bg-white/30' : 'bg-white/10'
+                  )}
                 >
-                  <Upload className="w-3 h-3" />
-                  Replace
-                </button>
-                <button
-                  onClick={handleRemoveTexture}
-                  className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Remove
+                  <span
+                    className={cn(
+                      'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                      audioInputEnabled ? 'translate-x-[20px]' : 'translate-x-0'
+                    )}
+                  />
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={textureUploading}
-              className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {textureUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload Image (logo, photo, etc.)
-                </>
-              )}
-            </button>
-          )}
-          {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
-          <p className="mt-1 text-white/30 text-[10px]">
-            Applied as texture across all scenes. Large images auto-optimized.
-          </p>
-        </section>
+            </section>
 
-        {/* Texture controls — only features the active scene declares */}
-        {config.customTextureUrl && (
-          <>
-            {sceneFeatures.has('textureScale') && (
+            {/* Bloom Intensity */}
+            <SliderControl
+              label="Bloom Intensity"
+              value={config.bloomIntensity}
+              min={0}
+              max={3}
+              step={0.1}
+              onChange={(v) => onQuickChange({ bloomIntensity: v })}
+            />
+
+            {/* Audio Reactivity - only meaningful when audio input is on */}
+            {audioInputEnabled && (
               <SliderControl
-                label="Texture Size"
-                value={config.textureScale ?? 1.0}
-                min={0.2}
-                max={3}
-                step={0.1}
-                onChange={(v) => onQuickChange({ textureScale: v })}
-              />
-            )}
-            {sceneFeatures.has('textureOpacity') && (
-              <SliderControl
-                label="Texture Opacity"
-                value={config.textureOpacity ?? 1.0}
+                label="Audio Reactivity"
+                value={config.audioReactivity}
                 min={0}
                 max={1}
                 step={0.05}
-                onChange={(v) => onQuickChange({ textureOpacity: v })}
+                onChange={(v) => onQuickChange({ audioReactivity: v })}
               />
             )}
-            {sceneFeatures.has('textureAnimation') && (
-              <TextureAnimationPicker
-                value={config.textureAnimation ?? 'none'}
-                onChange={(v) => onQuickChange({ textureAnimation: v })}
+
+            {/* Animation Speed */}
+            <SliderControl
+              label="Animation Speed"
+              value={config.animationSpeed}
+              min={0.5}
+              max={2}
+              step={0.1}
+              onChange={(v) => onQuickChange({ animationSpeed: v })}
+            />
+
+            {/* Dynamic per-scene controls from metadata */}
+            {sceneMeta?.params.map((param) => {
+              // Backward-compatible: particleDensity, symmetry, wireframe use top-level config
+              if (TOP_LEVEL_PARAM_KEYS.has(param.key)) {
+                if (param.type === 'slider') {
+                  const configKey = param.key as keyof VisualizerConfig;
+                  return (
+                    <SliderControl
+                      key={param.key}
+                      label={param.label}
+                      value={(config[configKey] as number) ?? (param.default as number)}
+                      min={param.min!}
+                      max={param.max!}
+                      step={param.step!}
+                      onChange={(v) => onQuickChange({ [param.key]: v })}
+                    />
+                  );
+                }
+                if (param.type === 'toggle') {
+                  const configKey = param.key as keyof VisualizerConfig;
+                  const currentValue = (config[configKey] as boolean) ?? (param.default as boolean);
+                  return (
+                    <section key={param.key}>
+                      <div className="flex items-center justify-between">
+                        <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                          {param.label}
+                        </label>
+                        <button
+                          onClick={() => onQuickChange({ [param.key]: !currentValue })}
+                          className={cn(
+                            'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                            currentValue ? 'bg-white/30' : 'bg-white/10'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                              currentValue ? 'translate-x-[20px]' : 'translate-x-0'
+                            )}
+                          />
+                        </button>
+                      </div>
+                    </section>
+                  );
+                }
+                return null;
+              }
+
+              // Non-top-level params use sceneParams
+              if (param.type === 'slider') {
+                return (
+                  <SliderControl
+                    key={param.key}
+                    label={param.label}
+                    value={(config.sceneParams?.[param.key] as number) ?? (param.default as number)}
+                    min={param.min!}
+                    max={param.max!}
+                    step={param.step!}
+                    onChange={(v) =>
+                      onQuickChange({
+                        sceneParams: { ...config.sceneParams, [param.key]: v },
+                      })
+                    }
+                  />
+                );
+              }
+              if (param.type === 'toggle') {
+                const currentValue =
+                  (config.sceneParams?.[param.key] as boolean) ?? (param.default as boolean);
+                return (
+                  <section key={param.key}>
+                    <div className="flex items-center justify-between">
+                      <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                        {param.label}
+                      </label>
+                      <button
+                        onClick={() =>
+                          onQuickChange({
+                            sceneParams: { ...config.sceneParams, [param.key]: !currentValue },
+                          })
+                        }
+                        className={cn(
+                          'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                          currentValue ? 'bg-white/30' : 'bg-white/10'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                            currentValue ? 'translate-x-[20px]' : 'translate-x-0'
+                          )}
+                        />
+                      </button>
+                    </div>
+                  </section>
+                );
+              }
+              return null;
+            })}
+
+            {/* Custom Texture */}
+            <section>
+              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                Custom Texture
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleTextureUpload}
+                className="hidden"
               />
-            )}
-            {sceneFeatures.has('patternOffset') && (
+              {config.customTextureUrl ? (
+                <div className="space-y-2">
+                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={config.customTextureUrl}
+                      alt="Custom texture"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Upload className="w-3 h-3" />
+                      Replace
+                    </button>
+                    <button
+                      onClick={handleRemoveTexture}
+                      className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={textureUploading}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {textureUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Upload Image (logo, photo, etc.)
+                    </>
+                  )}
+                </button>
+              )}
+              {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
+              <p className="mt-1 text-white/30 text-[10px]">
+                Applied as texture across all scenes. Large images auto-optimized.
+              </p>
+            </section>
+
+            {/* Texture controls — only features the active scene declares */}
+            {config.customTextureUrl && (
               <>
-                <SliderControl
-                  label="Pattern Offset X"
-                  value={config.patternOffsetX ?? 0}
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  onChange={(v) => onQuickChange({ patternOffsetX: v })}
-                />
-                <SliderControl
-                  label="Pattern Offset Y"
-                  value={config.patternOffsetY ?? 0}
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  onChange={(v) => onQuickChange({ patternOffsetY: v })}
-                />
+                {sceneFeatures.has('textureScale') && (
+                  <SliderControl
+                    label="Texture Size"
+                    value={config.textureScale ?? 1.0}
+                    min={0.2}
+                    max={3}
+                    step={0.1}
+                    onChange={(v) => onQuickChange({ textureScale: v })}
+                  />
+                )}
+                {sceneFeatures.has('textureOpacity') && (
+                  <SliderControl
+                    label="Texture Opacity"
+                    value={config.textureOpacity ?? 1.0}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    onChange={(v) => onQuickChange({ textureOpacity: v })}
+                  />
+                )}
+                {sceneFeatures.has('textureAnimation') && (
+                  <TextureAnimationPicker
+                    value={config.textureAnimation ?? 'none'}
+                    onChange={(v) => onQuickChange({ textureAnimation: v })}
+                  />
+                )}
+                {sceneFeatures.has('patternOffset') && (
+                  <>
+                    <SliderControl
+                      label="Pattern Offset X"
+                      value={config.patternOffsetX ?? 0}
+                      min={-1}
+                      max={1}
+                      step={0.05}
+                      onChange={(v) => onQuickChange({ patternOffsetX: v })}
+                    />
+                    <SliderControl
+                      label="Pattern Offset Y"
+                      value={config.patternOffsetY ?? 0}
+                      min={-1}
+                      max={1}
+                      step={0.05}
+                      onChange={(v) => onQuickChange({ patternOffsetY: v })}
+                    />
+                  </>
+                )}
               </>
             )}
+
+            {/* Reset */}
+            <section>
+              <button
+                onClick={() => {
+                  const defaults = buildDefaultConfig(config.scene);
+                  onConfigUpdate(defaults);
+                }}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset to Defaults
+              </button>
+            </section>
           </>
         )}
-
-        {/* Reset */}
-        <section>
-          <button
-            onClick={() => {
-              const defaults = buildDefaultConfig(config.scene);
-              onConfigUpdate(defaults);
-            }}
-            className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset to Defaults
-          </button>
-        </section>
       </div>
 
       {/* Keyboard shortcuts hint */}
       <div className="px-4 py-3 border-t border-white/10 text-white/30 text-[10px] space-y-0.5">
         <p>F: Fullscreen &middot; S: Settings &middot; M: Mic Toggle</p>
+        {setId && <p>1-9: Switch Cues</p>}
         <p>Esc: Close Panel or Exit Fullscreen</p>
       </div>
     </div>
