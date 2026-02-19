@@ -47,6 +47,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const colorCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const colorCycleIndexRef = useRef(0);
   const lerpFrameRef = useRef<number | null>(null);
+  const activeCueIdRef = useRef<string | null>(null);
 
   const [config, setConfig] = useState<VisualizerConfig | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -54,51 +55,70 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [colorCycleEnabled, setColorCycleEnabled] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load session or defaults
+  // Load set or defaults
   useEffect(() => {
     async function load() {
-      // Check admin token
-      if (!isNewSession) {
-        const token = localStorage.getItem(`mirage-admin-${id}`);
-        setIsAdmin(!!token);
-      } else {
-        setIsAdmin(true);
+      if (isNewSession) {
+        setIsOwner(true);
+        // Try localStorage first
+        const stored = localStorage.getItem(`mirage-config-${id}`);
+        if (stored) {
+          try {
+            setConfig(JSON.parse(stored));
+            return;
+          } catch {
+            /* ignore */
+          }
+        }
+        setConfig(buildDefaultConfig('particles'));
+        return;
       }
 
-      // Try localStorage first
+      // Try localStorage cache first
       const stored = localStorage.getItem(`mirage-config-${id}`);
       if (stored) {
         try {
           setConfig(JSON.parse(stored));
-          return;
         } catch {
           /* ignore */
         }
       }
 
-      // Try API for existing sessions
-      if (!isNewSession) {
-        try {
-          const res = await fetch(`/api/sessions/${id}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.data.config) {
-              const sessionConfig = data.data.config as VisualizerConfig;
-              setConfig(sessionConfig);
-              localStorage.setItem(`mirage-config-${id}`, JSON.stringify(sessionConfig));
+      // Fetch set from API
+      try {
+        const res = await fetch(`/api/sets/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            const setData = data.data;
+            if (setData.isOwner) {
+              setIsOwner(true);
+            }
+
+            // Load first cue's config
+            if (setData.cues && setData.cues.length > 0) {
+              const firstCue = setData.cues.sort(
+                (a: { position: number }, b: { position: number }) => a.position - b.position
+              )[0];
+              activeCueIdRef.current = firstCue.id;
+              const cueConfig = firstCue.config as VisualizerConfig;
+              setConfig(cueConfig);
+              localStorage.setItem(`mirage-config-${id}`, JSON.stringify(cueConfig));
               return;
             }
           }
-        } catch {
-          /* ignore */
         }
+      } catch {
+        /* ignore */
       }
 
-      // Default config
-      setConfig(buildDefaultConfig('particles'));
+      // Default config if nothing loaded
+      if (!stored) {
+        setConfig(buildDefaultConfig('particles'));
+      }
     }
     load();
   }, [id, isNewSession]);
@@ -205,18 +225,13 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     (newConfig: VisualizerConfig) => {
       localStorage.setItem(`mirage-config-${id}`, JSON.stringify(newConfig));
 
-      if (!isNewSession && isAdmin) {
+      if (!isNewSession && isOwner && activeCueIdRef.current) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(async () => {
-          const token = localStorage.getItem(`mirage-admin-${id}`);
-          if (!token) return;
           try {
-            await fetch(`/api/sessions/${id}`, {
+            await fetch(`/api/sets/${id}/cues/${activeCueIdRef.current}`, {
               method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-admin-token': token,
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ config: newConfig }),
             });
           } catch {
@@ -225,7 +240,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         }, 1000);
       }
     },
-    [id, isNewSession, isAdmin]
+    [id, isNewSession, isOwner]
   );
 
   const handleConfigUpdate = useCallback(
@@ -351,7 +366,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       {showSettings && (
         <VisualizerSettingsPanel
           config={config}
-          sessionId={isNewSession ? undefined : id}
+          setId={isNewSession ? undefined : id}
           audioInputEnabled={audioEnabled}
           colorCycleEnabled={colorCycleEnabled}
           onToggleAudioInput={handleToggleAudio}

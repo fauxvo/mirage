@@ -24,7 +24,7 @@ import type { VisualizerConfig } from '@/types/visualizer';
 
 interface VisualizerSettingsPanelProps {
   config: VisualizerConfig;
-  sessionId?: string;
+  setId?: string;
   audioInputEnabled: boolean;
   colorCycleEnabled: boolean;
   onToggleAudioInput: (enabled: boolean) => void;
@@ -48,7 +48,7 @@ const TOP_LEVEL_PARAM_KEYS = new Set(['particleDensity', 'symmetry', 'wireframe'
 
 export function VisualizerSettingsPanel({
   config,
-  sessionId,
+  setId,
   audioInputEnabled,
   colorCycleEnabled,
   onToggleAudioInput,
@@ -149,9 +149,8 @@ export function VisualizerSettingsPanel({
   };
 
   const uploadToStorage = async (file: File): Promise<string> => {
-    const adminToken = sessionId ? localStorage.getItem(`mirage-admin-${sessionId}`) : null;
-    if (!sessionId || !adminToken) {
-      throw new Error('Session required for cloud upload');
+    if (!setId) {
+      throw new Error('Set required for cloud upload');
     }
 
     const formData = new FormData();
@@ -160,8 +159,7 @@ export function VisualizerSettingsPanel({
     const res = await fetch('/api/upload', {
       method: 'POST',
       headers: {
-        'x-session-id': sessionId,
-        'x-admin-token': adminToken,
+        'x-set-id': setId,
       },
       body: formData,
     });
@@ -191,7 +189,7 @@ export function VisualizerSettingsPanel({
 
     try {
       // Use R2/S3 storage when available and we have a session
-      if (storageAvailable && sessionId) {
+      if (storageAvailable && setId) {
         setTextureUploading(true);
         const url = await uploadToStorage(file);
         onQuickChange({ customTextureUrl: url });
@@ -225,8 +223,8 @@ export function VisualizerSettingsPanel({
   };
 
   const handleCopyUrl = async () => {
-    if (!sessionId) return;
-    const url = `${window.location.origin}/v/${sessionId}`;
+    if (!setId) return;
+    const url = `${window.location.origin}/v/${setId}`;
     await navigator.clipboard.writeText(url);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2000);
@@ -266,15 +264,15 @@ export function VisualizerSettingsPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Share URL — only shown for saved sessions */}
-        {sessionId && (
+        {/* Share URL — only shown for saved sets */}
+        {setId && (
           <section>
             <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
-              Share Session
+              Share Set
             </label>
             <div className="flex gap-2">
               <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white/50 font-mono truncate">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/v/{sessionId}
+                {typeof window !== 'undefined' ? window.location.origin : ''}/v/{setId}
               </div>
               <button
                 onClick={handleCopyUrl}

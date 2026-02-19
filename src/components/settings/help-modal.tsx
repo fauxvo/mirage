@@ -18,7 +18,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
     { id: 'sliders', label: 'Sliders' },
     { id: 'texture', label: 'Texture' },
     { id: 'audio', label: 'Audio' },
-    { id: 'sessions', label: 'Sessions' },
+    { id: 'sets', label: 'Sets & Cues' },
     { id: 'keyboard', label: 'Shortcuts' },
   ];
 
@@ -63,8 +63,8 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 Every setting can be adjusted while the visualizer is running.
               </HelpParagraph>
               <HelpParagraph>
-                Changes are saved automatically. You can share sessions via URL — viewers see the
-                same visuals but only the creator can change settings.
+                Changes are saved automatically. You can share sets via URL — viewers see the same
+                visuals but only the owner can change settings.
               </HelpParagraph>
               <HelpItem title="Getting Started">
                 Pick a scene, choose a color preset (or make your own), then adjust sliders to
@@ -174,26 +174,27 @@ export function HelpModal({ onClose }: HelpModalProps) {
             </HelpContent>
           )}
 
-          {section === 'sessions' && (
+          {section === 'sets' && (
             <HelpContent>
               <HelpParagraph>
-                Sessions let you save and share visualizer configurations.
+                Sets let you organize and share visualizer configurations. Each set contains one or
+                more cues — individual looks you can switch between.
               </HelpParagraph>
-              <HelpItem title="Creating Sessions">
-                Sessions are created via the API (POST /api/sessions). The response includes a
-                session ID and admin token.
+              <HelpItem title="Creating Sets">
+                Create a set from your dashboard. Each new set starts with one default cue that you
+                can customize.
+              </HelpItem>
+              <HelpItem title="Cues">
+                A cue is a specific configuration: scene, colors, textures, and settings. Add
+                multiple cues to a set to prepare different looks.
               </HelpItem>
               <HelpItem title="Sharing">
-                Share the URL /v/[session-id] with anyone. They can view but not modify the session
-                settings.
-              </HelpItem>
-              <HelpItem title="Admin Token">
-                The admin token is stored in your browser&apos;s localStorage. Only the token holder
-                can update or delete a session.
+                Share the URL /v/[set-id] with anyone. Viewers see the same visuals but only the
+                owner can change settings.
               </HelpItem>
               <HelpItem title="Local Mode">
-                Visit /v/new for a local-only session that uses localStorage without creating a
-                server-side session.
+                Visit /v/new for a local-only mode that uses localStorage without creating a
+                server-side set.
               </HelpItem>
             </HelpContent>
           )}

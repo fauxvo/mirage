@@ -17,7 +17,7 @@ const mockHasActiveKeys = vi.mocked(apiKeyRepository.hasActiveKeys);
 
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
   const h = new Headers(headers);
-  return new NextRequest('http://localhost:4444/api/sessions', { headers: h, method: 'POST' });
+  return new NextRequest('http://localhost:4444/api/sets', { headers: h, method: 'POST' });
 }
 
 describe('validateApiKey', () => {

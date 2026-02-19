@@ -19,8 +19,8 @@ const FEATURES = [
   },
   {
     icon: Share2,
-    title: 'Shareable Sessions',
-    desc: 'Create sessions via REST API. Share a URL and anyone can watch your visualizer.',
+    title: 'Sets & Cues',
+    desc: 'Organize your looks into sets with multiple cues. Share a URL and anyone can watch.',
   },
   {
     icon: Monitor,
@@ -115,10 +115,10 @@ export default function Home() {
               Visualizer
             </Link>
             <Link
-              href="/sessions"
+              href="/dashboard"
               className="text-xs text-white/30 hover:text-white/50 transition-colors"
             >
-              Sessions
+              My Sets
             </Link>
             <Link
               href="/api/openapi"

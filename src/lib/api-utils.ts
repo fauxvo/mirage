@@ -7,3 +7,11 @@ export function successResponse<T>(data: T, status = 200) {
 export function errorResponse(message: string, status = 400) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
+
+export function safeParseConfig(config: string): Record<string, unknown> {
+  try {
+    return JSON.parse(config);
+  } catch {
+    return {};
+  }
+}
