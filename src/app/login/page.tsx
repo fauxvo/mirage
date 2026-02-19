@@ -30,10 +30,10 @@ function LoginForm() {
         return;
       }
 
-      const rawRedirect = searchParams.get('redirect') || '/';
+      const rawRedirect = searchParams.get('redirect') || '/dashboard';
       // Prevent open redirect — only allow relative paths
       const redirect =
-        rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
+        rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
       router.push(redirect);
     } catch {
       setError('Network error');
