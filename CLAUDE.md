@@ -116,7 +116,8 @@ mirage/
 ├── postcss.config.mjs              # Tailwind CSS v4
 ├── Dockerfile                      # Production image
 ├── docker-compose.yml              # Docker Compose setup
-└── unraid-template.xml             # Unraid container template
+└── unraid/
+    └── mirage.xml                  # Unraid container template
 ```
 
 ## Architecture
@@ -305,13 +306,16 @@ All config changes validated against `VisualizerConfigSchema`:
 # Database
 DATABASE_URL=./data/mirage.db
 
+# Debug
+DEBUG=                         # Set to 'true' to enable verbose logging in production/Docker
+
 # Auth
 JWT_SECRET=                    # JWT signing secret (falls back to ADMIN_PASSWORD)
 ADMIN_USERNAME=admin           # Initial admin username (first-time setup)
 ADMIN_EMAIL=                   # Initial admin email (required for first-time setup)
 ADMIN_PASSWORD=                # Initial admin password (min 8 chars, first-time setup)
 ALLOW_REGISTRATION=true        # Set to 'false' to disable public user registration
-SECURE_COOKIES=                # Set to 'false' for HTTP; unset = auto-detect from NODE_ENV
+SECURE_COOKIES=false           # Set to 'true' only if accessing over HTTPS
 
 # S3 Storage (all optional - if unset, textures use base64 in config)
 S3_BUCKET=mirage-textures
@@ -347,7 +351,7 @@ S3_PUBLIC_URL=                 # Public URL for direct texture serving (bypasses
 ## Deployment
 
 - **Docker**: `Dockerfile` (standalone output) + `docker-compose.yml`
-- **Unraid**: Template XML at `unraid-template.xml` — copy to `/boot/config/plugins/dockerMan/templates-user/mirage.xml`
+- **Unraid**: Template XML at `unraid/mirage.xml` — copy to `/boot/config/plugins/dockerMan/templates-user/mirage.xml`
 - **Port**: 4444 (configurable in docker-compose)
 - **Data**: Mount `./data/` for persistent SQLite database
 - **S3**: Optional — configure env vars for texture storage

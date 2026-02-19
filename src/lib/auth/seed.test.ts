@@ -101,6 +101,38 @@ describe('ensureAdminSeeded', () => {
     });
   });
 
+  it('retries on next call after a transient DB error', async () => {
+    vi.stubEnv('ADMIN_USERNAME', 'admin');
+    vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
+    vi.stubEnv('ADMIN_EMAIL', 'admin@test.com');
+
+    // First call: countAdmins throws a transient error
+    mockCountAdmins.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+
+    const { ensureAdminSeeded } = await import('./seed');
+    await ensureAdminSeeded(); // Should catch error, NOT set seeded=true
+
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    // Second call: DB recovers, seed should proceed
+    mockCountAdmins.mockResolvedValue(0);
+    mockCreate.mockResolvedValue({
+      id: 'mock-nanoid-id-16',
+      username: 'admin',
+      email: 'admin@test.com',
+      passwordHash: '$2a$12$hashed',
+      role: 'admin',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await ensureAdminSeeded(); // Should retry and succeed
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'admin', role: 'admin' })
+    );
+  });
+
   it('defaults username to admin when ADMIN_USERNAME not set', async () => {
     mockCountAdmins.mockResolvedValue(0);
     vi.stubEnv('ADMIN_PASSWORD', 'changeme123');

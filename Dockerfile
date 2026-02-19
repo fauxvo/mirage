@@ -65,6 +65,7 @@ LABEL net.unraid.docker.managed="dockerman"
 ENV PORT=4444
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL=/app/data/mirage.db
+ENV DEBUG=""
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4444/api/health || exit 1
