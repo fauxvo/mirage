@@ -311,6 +311,8 @@ export function CueManagementPanel({
   }
 
   async function handleRename(cueId: string, name: string) {
+    const original = cues.find((c) => c.id === cueId)?.name;
+    onCueRenamed(cueId, name); // Optimistic update
     try {
       const res = await fetch(`/api/sets/${setId}/cues/${cueId}`, {
         method: 'PUT',
@@ -318,11 +320,13 @@ export function CueManagementPanel({
         body: JSON.stringify({ name }),
       });
       const data = await res.json();
-      if (data.success) {
-        onCueRenamed(cueId, name);
+      if (!data.success) {
+        if (original !== undefined) onCueRenamed(cueId, original);
+        setError(data.error || 'Failed to rename cue');
       }
     } catch {
-      /* ignore */
+      if (original !== undefined) onCueRenamed(cueId, original);
+      setError('Network error');
     }
   }
 

@@ -6,6 +6,7 @@ import { CueManagementPanel } from '@/components/visualizer/cue-management-panel
 import type { CueSummary } from '@/components/visualizer/cue-switcher-bar';
 import type { VisualizerConfig } from '@/types/visualizer';
 import type { CueResponse } from '@/types/api';
+import { buildDefaultConfig } from '@/constants/visualizer-presets';
 
 interface CuesListProps {
   setId: string;
@@ -33,7 +34,7 @@ export function CuesList({ setId, cues, onCuesChange }: CuesListProps) {
     cues.map((c) => [
       c.id,
       {
-        config: c.config as unknown as VisualizerConfig,
+        config: c.config,
         textureUrl: c.textureUrl,
       },
     ])
@@ -55,7 +56,7 @@ export function CuesList({ setId, cues, onCuesChange }: CuesListProps) {
           ? { ...original, name: summary.name, position: summary.position }
           : ({
               ...summary,
-              config: {},
+              config: buildDefaultConfig('particles'),
               textureUrl: null,
               createdAt: '',
               updatedAt: '',
@@ -72,7 +73,7 @@ export function CuesList({ setId, cues, onCuesChange }: CuesListProps) {
         id: cue.id,
         name: cue.name,
         position: cue.position,
-        config: config as unknown as Record<string, unknown>,
+        config,
         textureUrl: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

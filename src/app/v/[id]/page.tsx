@@ -261,6 +261,8 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     }
   }, []);
 
+  const dismissToast = useCallback(() => setToastMessage(null), []);
+
   // Auto-hide controls
   useEffect(() => {
     const handleMove = () => {
@@ -593,8 +595,50 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       {showSettings && (
         <VisualizerSettingsPanel
           config={config}
-          setId={isNewSession ? undefined : id}
-          activeCueId={activeCueId ?? undefined}
+          setContext={
+            isNewSession
+              ? undefined
+              : {
+                  setId: id,
+                  activeCueId: activeCueId ?? undefined,
+                  isOwner,
+                  cues,
+                  cueConfigs: cueDataRef.current,
+                  onSwitchCue: switchCue,
+                  onCuesChange: (newCues) => setCues(newCues),
+                  onCueAdded: (cue, cueConfig) => {
+                    setCues((prev) => [...prev, cue]);
+                    cueDataRef.current.set(cue.id, { config: cueConfig, textureUrl: null });
+                    switchCue(cue.id);
+                  },
+                  onCueDeleted: (cueId) => {
+                    setCues((prev) => {
+                      const remaining = prev.filter((c) => c.id !== cueId);
+                      if (activeCueIdRef.current === cueId && remaining.length > 0) {
+                        const sorted = [...remaining].sort((a, b) => a.position - b.position);
+                        switchCue(sorted[0].id);
+                      }
+                      return remaining;
+                    });
+                    cueDataRef.current.delete(cueId);
+                  },
+                  onCueRenamed: (cueId, name) => {
+                    setCues((prev) => prev.map((c) => (c.id === cueId ? { ...c, name } : c)));
+                  },
+                  name: setName,
+                  description: setDescription,
+                  youtubePlaylistUrl: setYoutubePlaylistUrl,
+                  isPublic: setIsPublic,
+                  onMetadataChange: (fields) => {
+                    if (fields.name !== undefined) setSetName(fields.name);
+                    if (fields.description !== undefined)
+                      setSetDescription(fields.description ?? null);
+                    if (fields.youtubePlaylistUrl !== undefined)
+                      setSetYoutubePlaylistUrl(fields.youtubePlaylistUrl ?? null);
+                    if (fields.isPublic !== undefined) setSetIsPublic(fields.isPublic);
+                  },
+                }
+          }
           audioInputEnabled={audioEnabled}
           colorCycleEnabled={colorCycleEnabled}
           onToggleAudioInput={handleToggleAudio}
@@ -603,42 +647,6 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           onQuickChange={handleQuickChange}
           onClose={() => setShowSettings(false)}
           onShowHelp={() => setShowHelp(true)}
-          cues={cues}
-          cueConfigs={cueDataRef.current}
-          onSwitchCue={switchCue}
-          onCuesChange={(newCues) => setCues(newCues)}
-          onCueAdded={(cue, cueConfig) => {
-            setCues((prev) => [...prev, cue]);
-            cueDataRef.current.set(cue.id, { config: cueConfig, textureUrl: null });
-            switchCue(cue.id);
-          }}
-          onCueDeleted={(cueId) => {
-            setCues((prev) => prev.filter((c) => c.id !== cueId));
-            cueDataRef.current.delete(cueId);
-            // If the deleted cue was active, switch to first remaining
-            if (activeCueIdRef.current === cueId) {
-              const remaining = cues.filter((c) => c.id !== cueId);
-              if (remaining.length > 0) {
-                const sorted = [...remaining].sort((a, b) => a.position - b.position);
-                switchCue(sorted[0].id);
-              }
-            }
-          }}
-          onCueRenamed={(cueId, name) => {
-            setCues((prev) => prev.map((c) => (c.id === cueId ? { ...c, name } : c)));
-          }}
-          setName={setName}
-          setDescription={setDescription}
-          setYoutubePlaylistUrl={setYoutubePlaylistUrl}
-          setIsPublic={setIsPublic}
-          isOwner={isOwner}
-          onSetMetadataChange={(fields) => {
-            if (fields.name !== undefined) setSetName(fields.name);
-            if (fields.description !== undefined) setSetDescription(fields.description ?? null);
-            if (fields.youtubePlaylistUrl !== undefined)
-              setSetYoutubePlaylistUrl(fields.youtubePlaylistUrl ?? null);
-            if (fields.isPublic !== undefined) setSetIsPublic(fields.isPublic);
-          }}
         />
       )}
 
@@ -653,7 +661,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       )}
 
       {/* Cue switch toast */}
-      <CueToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      <CueToast message={toastMessage} onDismiss={dismissToast} />
 
       {/* Help Modal - rendered at page level so it's not clipped by sidebar */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}

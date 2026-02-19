@@ -33,6 +33,7 @@ export function SetSettingsPanel({
   const [localYoutubeUrl, setLocalYoutubeUrl] = useState(youtubePlaylistUrl ?? '');
   const [localIsPublic, setLocalIsPublic] = useState(isPublic);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,6 +59,7 @@ export function SetSettingsPanel({
       isPublic?: boolean;
     }) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      setSaveError('');
       saveTimerRef.current = setTimeout(async () => {
         try {
           const res = await fetch(`/api/sets/${setId}`, {
@@ -70,9 +72,12 @@ export function SetSettingsPanel({
             setSaved(true);
             if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
             savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
+          } else {
+            const data = await res.json().catch(() => null);
+            setSaveError(data?.error || 'Failed to save');
           }
         } catch {
-          /* ignore */
+          setSaveError('Network error');
         }
       }, 500);
     },
@@ -181,6 +186,13 @@ export function SetSettingsPanel({
         <div className="flex items-center gap-1.5 text-emerald-400/70 text-xs">
           <Check className="w-3.5 h-3.5" />
           Saved
+        </div>
+      )}
+
+      {/* Error */}
+      {saveError && (
+        <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
+          {saveError}
         </div>
       )}
     </div>

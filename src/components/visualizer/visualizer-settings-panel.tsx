@@ -27,10 +27,34 @@ import type { VisualizerConfig } from '@/types/visualizer';
 
 type SettingsTab = 'scene' | 'cues' | 'set';
 
+export interface SetContext {
+  setId: string;
+  activeCueId?: string;
+  isOwner: boolean;
+  // Cue management
+  cues: CueSummary[];
+  cueConfigs: Map<string, { config: VisualizerConfig; textureUrl: string | null }>;
+  onSwitchCue: (cueId: string) => void;
+  onCuesChange: (cues: CueSummary[]) => void;
+  onCueAdded: (cue: CueSummary, config: VisualizerConfig) => void;
+  onCueDeleted: (cueId: string) => void;
+  onCueRenamed: (cueId: string, name: string) => void;
+  // Set metadata
+  name: string;
+  description: string | null;
+  youtubePlaylistUrl: string | null;
+  isPublic: boolean;
+  onMetadataChange: (fields: {
+    name?: string;
+    description?: string | null;
+    youtubePlaylistUrl?: string | null;
+    isPublic?: boolean;
+  }) => void;
+}
+
 interface VisualizerSettingsPanelProps {
   config: VisualizerConfig;
-  setId?: string;
-  activeCueId?: string;
+  setContext?: SetContext;
   audioInputEnabled: boolean;
   colorCycleEnabled: boolean;
   onToggleAudioInput: (enabled: boolean) => void;
@@ -39,26 +63,6 @@ interface VisualizerSettingsPanelProps {
   onQuickChange: (changes: Partial<VisualizerConfig>) => void;
   onClose: () => void;
   onShowHelp: () => void;
-  // Cue management props (only used when setId is present)
-  cues?: CueSummary[];
-  cueConfigs?: Map<string, { config: VisualizerConfig; textureUrl: string | null }>;
-  onSwitchCue?: (cueId: string) => void;
-  onCuesChange?: (cues: CueSummary[]) => void;
-  onCueAdded?: (cue: CueSummary, config: VisualizerConfig) => void;
-  onCueDeleted?: (cueId: string) => void;
-  onCueRenamed?: (cueId: string, name: string) => void;
-  // Set settings props
-  setName?: string;
-  setDescription?: string | null;
-  setYoutubePlaylistUrl?: string | null;
-  setIsPublic?: boolean;
-  isOwner?: boolean;
-  onSetMetadataChange?: (fields: {
-    name?: string;
-    description?: string | null;
-    youtubePlaylistUrl?: string | null;
-    isPublic?: boolean;
-  }) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -74,8 +78,7 @@ const TOP_LEVEL_PARAM_KEYS = new Set(['particleDensity', 'symmetry', 'wireframe'
 
 export function VisualizerSettingsPanel({
   config,
-  setId,
-  activeCueId,
+  setContext,
   audioInputEnabled,
   colorCycleEnabled,
   onToggleAudioInput,
@@ -84,20 +87,9 @@ export function VisualizerSettingsPanel({
   onQuickChange,
   onClose,
   onShowHelp,
-  cues,
-  cueConfigs,
-  onSwitchCue,
-  onCuesChange,
-  onCueAdded,
-  onCueDeleted,
-  onCueRenamed,
-  setName,
-  setDescription,
-  setYoutubePlaylistUrl,
-  setIsPublic,
-  isOwner,
-  onSetMetadataChange,
 }: VisualizerSettingsPanelProps) {
+  const setId = setContext?.setId;
+  const activeCueId = setContext?.activeCueId;
   const [activeTab, setActiveTab] = useState<SettingsTab>('scene');
   const [textureError, setTextureError] = useState<string | null>(null);
   const [textureUploading, setTextureUploading] = useState(false);
@@ -332,38 +324,30 @@ export function VisualizerSettingsPanel({
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-hidden p-4 space-y-6">
         {/* Cues tab */}
-        {activeTab === 'cues' &&
-          setId &&
-          cues &&
-          onSwitchCue &&
-          onCuesChange &&
-          onCueAdded &&
-          onCueDeleted &&
-          onCueRenamed &&
-          cueConfigs && (
-            <CueManagementPanel
-              setId={setId}
-              cues={cues}
-              activeCueId={activeCueId}
-              cueConfigs={cueConfigs}
-              onSwitchCue={onSwitchCue}
-              onCuesChange={onCuesChange}
-              onCueAdded={onCueAdded}
-              onCueDeleted={onCueDeleted}
-              onCueRenamed={onCueRenamed}
-            />
-          )}
+        {activeTab === 'cues' && setContext && (
+          <CueManagementPanel
+            setId={setContext.setId}
+            cues={setContext.cues}
+            activeCueId={setContext.activeCueId}
+            cueConfigs={setContext.cueConfigs}
+            onSwitchCue={setContext.onSwitchCue}
+            onCuesChange={setContext.onCuesChange}
+            onCueAdded={setContext.onCueAdded}
+            onCueDeleted={setContext.onCueDeleted}
+            onCueRenamed={setContext.onCueRenamed}
+          />
+        )}
 
         {/* Set tab */}
-        {activeTab === 'set' && setId && setName !== undefined && onSetMetadataChange && (
+        {activeTab === 'set' && setContext && (
           <SetSettingsPanel
-            setId={setId}
-            name={setName ?? ''}
-            description={setDescription ?? null}
-            youtubePlaylistUrl={setYoutubePlaylistUrl ?? null}
-            isPublic={setIsPublic ?? false}
-            isOwner={isOwner ?? false}
-            onMetadataChange={onSetMetadataChange}
+            setId={setContext.setId}
+            name={setContext.name}
+            description={setContext.description}
+            youtubePlaylistUrl={setContext.youtubePlaylistUrl}
+            isPublic={setContext.isPublic}
+            isOwner={setContext.isOwner}
+            onMetadataChange={setContext.onMetadataChange}
           />
         )}
 
