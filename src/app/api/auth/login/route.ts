@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   const user = await userRepository.findByUsername(parsed.data.username);
   if (!user) {
-    Logger.warn(`Login: user not found: ${parsed.data.username}`);
+    Logger.warn('Login: user not found');
     return errorResponse('Invalid credentials', 401);
   }
 
