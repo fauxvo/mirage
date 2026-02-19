@@ -311,6 +311,7 @@ ADMIN_USERNAME=admin           # Initial admin username (first-time setup)
 ADMIN_EMAIL=                   # Initial admin email (required for first-time setup)
 ADMIN_PASSWORD=                # Initial admin password (min 8 chars, first-time setup)
 ALLOW_REGISTRATION=true        # Set to 'false' to disable public user registration
+SECURE_COOKIES=                # Set to 'false' for HTTP; unset = auto-detect from NODE_ENV
 
 # S3 Storage (all optional - if unset, textures use base64 in config)
 S3_BUCKET=mirage-textures

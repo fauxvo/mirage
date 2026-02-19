@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { encrypt, decrypt } from './session';
+import { encrypt, decrypt, createSession } from './session';
+import { cookies } from 'next/headers';
 
 // Mock the cookies() function for session management
 vi.mock('next/headers', () => ({
@@ -86,5 +87,64 @@ describe('JWT encrypt/decrypt', () => {
 
     expect(userPayload!.role).toBe('user');
     expect(adminPayload!.role).toBe('admin');
+  });
+});
+
+describe('createSession cookie secure flag', () => {
+  const mockSet = vi.fn();
+
+  beforeEach(() => {
+    vi.stubEnv('JWT_SECRET', 'test-secret-key-12345');
+    vi.stubEnv('ADMIN_PASSWORD', '');
+    vi.stubEnv('ADMIN_SESSION_SECRET', '');
+    mockSet.mockClear();
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn(),
+      set: mockSet,
+      delete: vi.fn(),
+    } as never);
+  });
+
+  it('sets secure: true when SECURE_COOKIES=true', async () => {
+    vi.stubEnv('SECURE_COOKIES', 'true');
+    await createSession('u1', 'admin', 'admin');
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      expect.any(String),
+      expect.objectContaining({ secure: true })
+    );
+  });
+
+  it('sets secure: false when SECURE_COOKIES=false', async () => {
+    vi.stubEnv('SECURE_COOKIES', 'false');
+    await createSession('u1', 'admin', 'admin');
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      expect.any(String),
+      expect.objectContaining({ secure: false })
+    );
+  });
+
+  it('falls back to NODE_ENV when SECURE_COOKIES is unset', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('JWT_SECRET', 'test-secret-key-12345');
+    vi.stubEnv('NODE_ENV', 'production');
+    await createSession('u1', 'admin', 'admin');
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      expect.any(String),
+      expect.objectContaining({ secure: true })
+    );
+  });
+
+  it('falls back to NODE_ENV when SECURE_COOKIES is empty string', async () => {
+    vi.stubEnv('SECURE_COOKIES', '');
+    vi.stubEnv('NODE_ENV', 'development');
+    await createSession('u1', 'admin', 'admin');
+    expect(mockSet).toHaveBeenCalledWith(
+      'mirage-session',
+      expect.any(String),
+      expect.objectContaining({ secure: false })
+    );
   });
 });
