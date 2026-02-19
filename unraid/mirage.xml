@@ -27,7 +27,7 @@
   <Config Name="Debug Logging" Target="DEBUG" Default="" Mode="" Description="Set to 'true' to enable verbose server logging" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="Session Secret (Legacy)" Target="ADMIN_SESSION_SECRET" Default="" Mode="" Description="Legacy JWT fallback (use JWT_SECRET instead)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="R2/S3 Bucket" Target="S3_BUCKET" Default="" Mode="" Description="R2 or S3 bucket name for texture storage (optional)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="R2/S3 Region" Target="S3_REGION" Default="auto" Mode="" Description="Use 'auto' for Cloudflare R2, or a region for AWS S3" Type="Variable" Display="advanced" Required="false" Mask="false">auto</Config>
+  <Config Name="R2/S3 Region" Target="S3_REGION" Default="us-east-1" Mode="" Description="Use 'us-east-1' for AWS S3, or 'auto' for Cloudflare R2" Type="Variable" Display="advanced" Required="false" Mask="false">us-east-1</Config>
   <Config Name="R2/S3 Endpoint" Target="S3_ENDPOINT" Default="" Mode="" Description="R2: https://ACCOUNT_ID.r2.cloudflarestorage.com" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="R2/S3 Access Key" Target="S3_ACCESS_KEY_ID" Default="" Mode="" Description="R2 API Token Access Key ID" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="R2/S3 Secret Key" Target="S3_SECRET_ACCESS_KEY" Default="" Mode="" Description="R2 API Token Secret Access Key" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>

@@ -11,20 +11,20 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function isDebug(): boolean {
-  const debug = process.env.DEBUG;
+const _isDebug = (() => {
+  const debug = process.env.DEBUG?.toLowerCase();
   return (
     process.env.NODE_ENV !== 'production' ||
-    (debug !== undefined && debug !== '' && debug.toLowerCase() !== 'false')
+    (debug !== undefined && debug !== '' && debug !== 'false' && debug !== '0' && debug !== 'no')
   );
-}
+})();
 
 export const Logger = {
   log: (...args: unknown[]) => {
-    if (isDebug()) console.log('[Mirage]', ...args);
+    if (_isDebug) console.log('[Mirage]', ...args);
   },
   warn: (...args: unknown[]) => {
-    if (isDebug()) console.warn('[Mirage]', ...args);
+    if (_isDebug) console.warn('[Mirage]', ...args);
   },
   error: (...args: unknown[]) => {
     console.error('[Mirage]', ...args);

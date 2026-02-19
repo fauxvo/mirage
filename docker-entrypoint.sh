@@ -14,8 +14,8 @@ echo "[mirage]   ADMIN_USERNAME=${ADMIN_USERNAME:-not set}"
 echo "[mirage]   ADMIN_EMAIL=$([ -n "$ADMIN_EMAIL" ] && echo 'set' || echo 'NOT SET')"
 echo "[mirage]   ADMIN_PASSWORD=$([ -n "$ADMIN_PASSWORD" ] && echo 'set' || echo 'NOT SET')"
 echo "[mirage]   JWT_SECRET=$([ -n "$JWT_SECRET" ] && echo 'set' || echo 'NOT SET (will fall back to ADMIN_PASSWORD)')"
-echo "[mirage]   SECURE_COOKIES=${SECURE_COOKIES:-not set (auto-detect)}"
-echo "[mirage]   ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-not set (defaults to true)}"
+echo "[mirage]   SECURE_COOKIES=${SECURE_COOKIES:-not set}"
+echo "[mirage]   ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-not set}"
 
 # Fix ownership of the data directory.
 # When a host volume is mounted (e.g. on Unraid), it's typically owned by root,
