@@ -15,7 +15,7 @@ interface CueSwitcherBarProps {
   cues: CueSummary[];
   activeCueId: string | null;
   onSwitchCue: (cueId: string) => void;
-  bottomOffset?: 'bottom-4' | 'bottom-20';
+  bottomOffset?: string;
 }
 
 export function CueSwitcherBar({

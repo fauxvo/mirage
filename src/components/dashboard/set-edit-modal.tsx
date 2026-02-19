@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { extractPlaylistId } from '@/components/visualizer/youtube-player-bar';
 import type { SetListItem } from '@/types/api';
 
 interface SetEditModalProps {
@@ -19,9 +20,24 @@ export function SetEditModal({ set, onClose, onSaved }: SetEditModalProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Close on Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose, saving]);
+
   async function handleSave() {
     if (!name.trim()) {
       setError('Name is required');
+      return;
+    }
+
+    const trimmedUrl = youtubePlaylistUrl.trim();
+    if (trimmedUrl && !extractPlaylistId(trimmedUrl)) {
+      setError('Invalid YouTube playlist URL — must contain a list= parameter');
       return;
     }
 

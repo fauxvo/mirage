@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useId,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import {
   Play,
   Pause,
@@ -12,6 +20,7 @@ import {
   ChevronUp,
   Music,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function extractPlaylistId(url: string): string | null {
   try {
@@ -30,6 +39,7 @@ export interface YouTubePlayerBarHandle {
 
 interface YouTubePlayerBarProps {
   playlistUrl: string;
+  visible?: boolean;
   onVisibilityChange?: (visible: boolean) => void;
 }
 
@@ -41,7 +51,7 @@ function formatTime(seconds: number): string {
 }
 
 export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayerBarProps>(
-  function YouTubePlayerBar({ playlistUrl, onVisibilityChange }, ref) {
+  function YouTubePlayerBar({ playlistUrl, visible = true, onVisibilityChange }, ref) {
     const playerRef = useRef<YT.Player | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -57,6 +67,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const playlistId = extractPlaylistId(playlistUrl);
+    const instanceId = useId().replace(/:/g, '');
 
     const updateTrackInfo = useCallback(() => {
       if (!playerRef.current) return;
@@ -102,7 +113,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
 
         // Create a div for the player inside our container
         const playerDiv = document.createElement('div');
-        playerDiv.id = 'yt-player-' + Date.now();
+        playerDiv.id = `yt-player-${instanceId}`;
         containerRef.current.appendChild(playerDiv);
 
         playerRef.current = new YT.Player(playerDiv.id, {
@@ -115,7 +126,6 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
             controls: 0,
             disablekb: 1,
             fs: 0,
-            modestbranding: 1,
             rel: 0,
           },
           events: {
@@ -144,8 +154,10 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
         if (progressTimerRef.current) clearInterval(progressTimerRef.current);
         playerRef.current?.destroy();
         playerRef.current = null;
+        // Restore previous callback to avoid stale closure accumulation
+        window.onYouTubeIframeAPIReady = prevCallback;
       };
-    }, [playlistId, updateTrackInfo]);
+    }, [playlistId, updateTrackInfo, instanceId]);
 
     // Progress polling
     useEffect(() => {
@@ -187,15 +199,45 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
       playerRef.current.previousVideo();
     }, [isReady]);
 
-    const handleSeek = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+    const seekFromEvent = useCallback(
+      (clientX: number, bar: HTMLElement) => {
         if (!playerRef.current || !duration) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const rect = bar.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
         playerRef.current.seekTo(ratio * duration, true);
         setCurrentTime(ratio * duration);
       },
       [duration]
+    );
+
+    const handleSeekMouseDown = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        const bar = e.currentTarget;
+        seekFromEvent(e.clientX, bar);
+
+        const handleMouseMove = (ev: MouseEvent) => seekFromEvent(ev.clientX, bar);
+        const handleMouseUp = () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+      },
+      [seekFromEvent]
+    );
+
+    const handleSeekKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!playerRef.current || !duration) return;
+        let newTime = currentTime;
+        if (e.key === 'ArrowRight') newTime = Math.min(duration, currentTime + 5);
+        else if (e.key === 'ArrowLeft') newTime = Math.max(0, currentTime - 5);
+        else return;
+        e.preventDefault();
+        playerRef.current.seekTo(newTime, true);
+        setCurrentTime(newTime);
+      },
+      [currentTime, duration]
     );
 
     const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,10 +285,17 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
 
         {/* Collapsed: minimal strip */}
         {isCollapsed ? (
-          <div className="fixed bottom-0 left-0 right-0 z-40 h-8 bg-black/90 backdrop-blur-md border-t border-white/10 flex items-center px-4 gap-3">
+          <div
+            className={cn(
+              'fixed bottom-0 left-0 right-0 z-40 h-8 bg-black/90 backdrop-blur-md border-t border-white/10 flex items-center px-4 gap-3',
+              'transition-opacity duration-300',
+              visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            )}
+          >
             <button
               onClick={togglePlayPause}
               className="text-white/60 hover:text-white transition-colors"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
             </button>
@@ -256,12 +305,19 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
             <button
               onClick={() => setIsCollapsed(false)}
               className="text-white/30 hover:text-white/60 transition-colors"
+              aria-label="Expand player"
             >
               <ChevronUp className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-black/90 backdrop-blur-md border-t border-white/10">
+          <div
+            className={cn(
+              'fixed bottom-0 left-0 right-0 z-40 h-16 bg-black/90 backdrop-blur-md border-t border-white/10',
+              'transition-opacity duration-300',
+              visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            )}
+          >
             <div className="h-full flex items-center px-4 gap-4">
               {/* Left: Track info */}
               <div className="w-56 shrink-0 min-w-0">
@@ -288,6 +344,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     onClick={prevTrack}
                     disabled={!isReady}
                     className="text-white/50 hover:text-white transition-colors disabled:opacity-30"
+                    aria-label="Previous track"
                     title="Previous track (Shift+Left)"
                   >
                     <SkipBack className="w-3.5 h-3.5" />
@@ -296,6 +353,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     onClick={togglePlayPause}
                     disabled={!isReady}
                     className="flex items-center justify-center w-7 h-7 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-30"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
                     title="Play/Pause (Space)"
                   >
                     {isPlaying ? (
@@ -308,6 +366,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     onClick={nextTrack}
                     disabled={!isReady}
                     className="text-white/50 hover:text-white transition-colors disabled:opacity-30"
+                    aria-label="Next track"
                     title="Next track (Shift+Right)"
                   >
                     <SkipForward className="w-3.5 h-3.5" />
@@ -320,8 +379,15 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     {formatTime(currentTime)}
                   </span>
                   <div
+                    role="slider"
+                    aria-label="Seek"
+                    aria-valuenow={Math.round(currentTime)}
+                    aria-valuemin={0}
+                    aria-valuemax={Math.round(duration)}
+                    tabIndex={0}
                     className="flex-1 h-1 bg-white/10 rounded-full cursor-pointer group relative"
-                    onClick={handleSeek}
+                    onMouseDown={handleSeekMouseDown}
+                    onKeyDown={handleSeekKeyDown}
                   >
                     <div
                       className="h-full bg-white/40 rounded-full group-hover:bg-white/60 transition-colors"
@@ -339,6 +405,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                 <button
                   onClick={toggleMute}
                   className="text-white/40 hover:text-white/70 transition-colors"
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? (
                     <VolumeX className="w-3.5 h-3.5" />
@@ -357,6 +424,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                 <button
                   onClick={() => setIsCollapsed(true)}
                   className="text-white/30 hover:text-white/60 transition-colors ml-1"
+                  aria-label="Collapse player"
                   title="Collapse player"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />

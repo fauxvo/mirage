@@ -682,6 +682,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         <YouTubePlayerBar
           ref={youtubePlayerRef}
           playlistUrl={setYoutubePlaylistUrl!}
+          visible={controlsVisible}
           onVisibilityChange={setYoutubeBarVisible}
         />
       )}
