@@ -11,7 +11,7 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-const _isDebug = (() => {
+const debugEnabled = (() => {
   const debug = process.env.DEBUG?.toLowerCase();
   return (
     process.env.NODE_ENV !== 'production' ||
@@ -21,10 +21,10 @@ const _isDebug = (() => {
 
 export const Logger = {
   log: (...args: unknown[]) => {
-    if (_isDebug) console.log('[Mirage]', ...args);
+    if (debugEnabled) console.log('[Mirage]', ...args);
   },
   warn: (...args: unknown[]) => {
-    if (_isDebug) console.warn('[Mirage]', ...args);
+    if (debugEnabled) console.warn('[Mirage]', ...args);
   },
   error: (...args: unknown[]) => {
     console.error('[Mirage]', ...args);

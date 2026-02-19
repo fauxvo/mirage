@@ -30,9 +30,7 @@ export async function ensureAdminSeeded(): Promise<void> {
     }
 
     if (password.length < 8) {
-      console.warn(
-        `[mirage] ADMIN_PASSWORD must be at least 8 characters (got ${password.length}). Skipping seed.`
-      );
+      console.warn('[mirage] ADMIN_PASSWORD must be at least 8 characters. Skipping seed.');
       seeded = true;
       return;
     }

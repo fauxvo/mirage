@@ -13,7 +13,7 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
-      - SECURE_COOKIES=${SECURE_COOKIES:-false}
+      - SECURE_COOKIES=${SECURE_COOKIES:-} # empty = auto-detect from NODE_ENV; set 'false' for HTTP, 'true' for HTTPS
       - S3_BUCKET=${S3_BUCKET:-}
       - S3_REGION=${S3_REGION:-us-east-1}
       - S3_ENDPOINT=${S3_ENDPOINT:-}
