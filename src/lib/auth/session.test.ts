@@ -125,9 +125,8 @@ describe('createSession cookie secure flag', () => {
     );
   });
 
-  it('falls back to NODE_ENV when SECURE_COOKIES is unset', async () => {
-    vi.unstubAllEnvs();
-    vi.stubEnv('JWT_SECRET', 'test-secret-key-12345');
+  it('falls back to NODE_ENV=production when SECURE_COOKIES is empty', async () => {
+    vi.stubEnv('SECURE_COOKIES', '');
     vi.stubEnv('NODE_ENV', 'production');
     await createSession('u1', 'admin', 'admin');
     expect(mockSet).toHaveBeenCalledWith(
@@ -137,7 +136,7 @@ describe('createSession cookie secure flag', () => {
     );
   });
 
-  it('falls back to NODE_ENV when SECURE_COOKIES is empty string', async () => {
+  it('falls back to NODE_ENV=development when SECURE_COOKIES is empty', async () => {
     vi.stubEnv('SECURE_COOKIES', '');
     vi.stubEnv('NODE_ENV', 'development');
     await createSession('u1', 'admin', 'admin');

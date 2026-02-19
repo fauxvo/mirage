@@ -49,7 +49,9 @@ export async function createSession(
   const cookieStore = await cookies();
   const raw = process.env.SECURE_COOKIES;
   const secure =
-    raw !== undefined && raw !== '' ? raw !== 'false' : process.env.NODE_ENV === 'production';
+    raw !== undefined && raw !== ''
+      ? raw.toLowerCase() !== 'false'
+      : process.env.NODE_ENV === 'production';
 
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
