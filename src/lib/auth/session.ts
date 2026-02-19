@@ -40,6 +40,14 @@ export async function decrypt(token: string): Promise<SessionPayload | null> {
   }
 }
 
+/** Resolve the `secure` flag once — shared by create and delete so browsers can clear the cookie. */
+export function isSecureCookie(): boolean {
+  const raw = process.env.SECURE_COOKIES;
+  return raw !== undefined && raw !== ''
+    ? raw.toLowerCase() !== 'false'
+    : process.env.NODE_ENV === 'production';
+}
+
 export async function createSession(
   userId: string,
   username: string,
@@ -47,9 +55,10 @@ export async function createSession(
 ): Promise<string> {
   const token = await encrypt({ userId, username, role });
   const cookieStore = await cookies();
+
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecureCookie(),
     sameSite: 'lax',
     maxAge: EXPIRY_SECONDS,
     path: '/',
@@ -59,7 +68,13 @@ export async function createSession(
 
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  cookieStore.set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: isSecureCookie(),
+    sameSite: 'lax',
+    maxAge: 0,
+    path: '/',
+  });
 }
 
 export const verifySession = cache(async (): Promise<SessionPayload | null> => {

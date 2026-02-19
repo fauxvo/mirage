@@ -121,21 +121,22 @@ From the dashboard you can create and revoke API keys. Keys use the format `mk_`
 
 ## Environment Variables
 
-| Variable               | Required | Default            | Description                                            |
-| ---------------------- | -------- | ------------------ | ------------------------------------------------------ |
-| `DATABASE_URL`         | No       | `./data/mirage.db` | SQLite database path                                   |
-| `JWT_SECRET`           | No       | —                  | JWT signing secret (falls back to `ADMIN_PASSWORD`)    |
-| `ADMIN_USERNAME`       | No       | `admin`            | Initial admin username (first-time setup)              |
-| `ADMIN_EMAIL`          | No       | —                  | Initial admin email (required for first-time setup)    |
-| `ADMIN_PASSWORD`       | No       | —                  | Initial admin password (min 8 chars)                   |
-| `ALLOW_REGISTRATION`   | No       | `true`             | Set to `false` to disable public user registration     |
-| `S3_BUCKET`            | No       | —                  | R2/S3 bucket name                                      |
-| `S3_REGION`            | No       | `us-east-1`        | Use `auto` for R2                                      |
-| `S3_ENDPOINT`          | No       | —                  | R2: `https://<account-id>.r2.cloudflarestorage.com`    |
-| `S3_ACCESS_KEY_ID`     | No       | —                  | R2 API token access key                                |
-| `S3_SECRET_ACCESS_KEY` | No       | —                  | R2 API token secret key                                |
-| `S3_FORCE_PATH_STYLE`  | No       | `true`             | Required for R2/MinIO                                  |
-| `S3_PUBLIC_URL`        | No       | —                  | Public URL for direct texture serving (bypasses proxy) |
+| Variable               | Required | Default             | Description                                                  |
+| ---------------------- | -------- | ------------------- | ------------------------------------------------------------ |
+| `DATABASE_URL`         | No       | `./data/mirage.db`  | SQLite database path                                         |
+| `JWT_SECRET`           | No       | —                   | JWT signing secret (falls back to `ADMIN_PASSWORD`)          |
+| `ADMIN_USERNAME`       | No       | `admin`             | Initial admin username (first-time setup)                    |
+| `ADMIN_EMAIL`          | No       | —                   | Initial admin email (required for first-time setup)          |
+| `ADMIN_PASSWORD`       | No       | —                   | Initial admin password (min 8 chars)                         |
+| `ALLOW_REGISTRATION`   | No       | `true`              | Set to `false` to disable public user registration           |
+| `SECURE_COOKIES`       | No       | auto (true in prod) | Set to `false` for HTTP; Unraid template defaults to `false` |
+| `S3_BUCKET`            | No       | —                   | R2/S3 bucket name                                            |
+| `S3_REGION`            | No       | `us-east-1`         | Use `auto` for R2                                            |
+| `S3_ENDPOINT`          | No       | —                   | R2: `https://<account-id>.r2.cloudflarestorage.com`          |
+| `S3_ACCESS_KEY_ID`     | No       | —                   | R2 API token access key                                      |
+| `S3_SECRET_ACCESS_KEY` | No       | —                   | R2 API token secret key                                      |
+| `S3_FORCE_PATH_STYLE`  | No       | `true`              | Required for R2/MinIO                                        |
+| `S3_PUBLIC_URL`        | No       | —                   | Public URL for direct texture serving (bypasses proxy)       |
 
 ## API
 
