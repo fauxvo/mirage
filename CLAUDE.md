@@ -63,7 +63,7 @@ mirage/
 │   │   │   ├── visualizer-settings-panel.tsx # Settings sidebar UI
 │   │   │   ├── youtube-player-bar.tsx         # YouTube playlist player bar
 │   │   │   ├── cue-switcher-bar.tsx          # Cue switching bottom bar
-│   │   │   └── scenes/                       # 25 scene implementations
+│   │   │   └── scenes/                       # 26 scene implementations
 │   │   │       ├── index.ts                  # Barrel import (triggers registration)
 │   │   │       ├── scene-registry.ts         # Registry: createScene, getAvailableScenes
 │   │   │       ├── types.ts                  # SceneHandler, SceneParamDef, SceneRegistration

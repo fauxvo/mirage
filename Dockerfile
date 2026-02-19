@@ -1,25 +1,25 @@
 FROM node:20-alpine AS base
 
-# Install bun
-RUN npm install -g bun
+# Install bun (pinned to 1.x via npm)
+RUN npm install -g bun@1
 
 # --- Dependencies ---
 FROM base AS deps
 WORKDIR /app
 
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile 2>/dev/null || bun install
+RUN bun install --frozen-lockfile
 
 # --- Build ---
 FROM base AS builder
 WORKDIR /app
 
-RUN apk add --no-cache git
-
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Create data directory and push schema for build-time prerendering
+# Push schema to a throwaway SQLite DB so Next.js can prerender pages
+# that import from src/db/ (e.g. dashboard). This DB is NOT used at
+# runtime — the mounted volume provides the real one.
 RUN mkdir -p data
 RUN bun run db:push
 
