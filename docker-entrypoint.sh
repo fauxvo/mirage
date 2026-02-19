@@ -17,10 +17,11 @@ echo "[mirage]   JWT_SECRET=$([ -n "$JWT_SECRET" ] && echo 'set' || echo 'NOT SE
 echo "[mirage]   SECURE_COOKIES=${SECURE_COOKIES:-not set}"
 echo "[mirage]   ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-not set}"
 
-# Fix ownership of the data directory BEFORE anything else.
+# Fix ownership of the data directory (and any existing DB files) BEFORE anything else.
 # When a host volume is mounted (e.g. on Unraid), it's typically owned by root,
-# which the nextjs user (uid 1001) can't write to.
-chown nextjs:nodejs /app/data
+# which the nextjs user (uid 1001) can't write to. -R handles the upgrade path
+# where a previous version created root-owned files inside the volume.
+chown -R nextjs:nodejs /app/data
 
 # Check for existing database
 if [ -f "${DATABASE_URL:-/app/data/mirage.db}" ]; then

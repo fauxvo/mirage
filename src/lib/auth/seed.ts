@@ -8,6 +8,9 @@ let seedPromise: Promise<void> | null = null;
  * Ensures the initial admin user is created. Safe to call from multiple
  * code paths concurrently — all callers share a single execution via
  * promise singleton. On error the singleton resets so the next call retries.
+ *
+ * Note: always resolves (never rejects). Errors are logged and swallowed
+ * so callers don't need try/catch — this is best-effort seeding.
  */
 export function ensureAdminSeeded(): Promise<void> {
   if (!seedPromise) {

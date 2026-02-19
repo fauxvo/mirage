@@ -156,6 +156,38 @@ describe('ensureAdminSeeded', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
+  it('concurrent calls where first errors both see reset and can retry', async () => {
+    vi.stubEnv('ADMIN_USERNAME', 'admin');
+    vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
+    vi.stubEnv('ADMIN_EMAIL', 'admin@test.com');
+
+    // countAdmins will reject — both concurrent callers share the failing promise
+    mockCountAdmins.mockRejectedValueOnce(new Error('SQLITE_BUSY'));
+
+    const { ensureAdminSeeded } = await import('./seed');
+
+    // Both calls share the same failing promise — both resolve (error is swallowed)
+    await Promise.all([ensureAdminSeeded(), ensureAdminSeeded()]);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    // After failure, singleton resets — next call retries and succeeds
+    mockCountAdmins.mockResolvedValue(0);
+    mockCreate.mockResolvedValue({
+      id: 'mock-nanoid-id-16',
+      username: 'admin',
+      email: 'admin@test.com',
+      passwordHash: '$2a$12$hashed',
+      role: 'admin',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await ensureAdminSeeded();
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
   it('defaults username to admin when ADMIN_USERNAME not set', async () => {
     mockCountAdmins.mockResolvedValue(0);
     vi.stubEnv('ADMIN_PASSWORD', 'changeme123');
