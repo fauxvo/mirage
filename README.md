@@ -129,6 +129,7 @@ From the dashboard you can create and revoke API keys. Keys use the format `mk_`
 | `ADMIN_EMAIL`          | No       | —                  | Initial admin email (required for first-time setup)    |
 | `ADMIN_PASSWORD`       | No       | —                  | Initial admin password (min 8 chars)                   |
 | `ALLOW_REGISTRATION`   | No       | `true`             | Set to `false` to disable public user registration     |
+| `SECURE_COOKIES`       | No       | `true` in prod     | Set to `false` if accessing over HTTP (no TLS)         |
 | `S3_BUCKET`            | No       | —                  | R2/S3 bucket name                                      |
 | `S3_REGION`            | No       | `us-east-1`        | Use `auto` for R2                                      |
 | `S3_ENDPOINT`          | No       | —                  | R2: `https://<account-id>.r2.cloudflarestorage.com`    |

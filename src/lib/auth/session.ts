@@ -47,9 +47,14 @@ export async function createSession(
 ): Promise<string> {
   const token = await encrypt({ userId, username, role });
   const cookieStore = await cookies();
+  const secure =
+    process.env.SECURE_COOKIES !== undefined
+      ? process.env.SECURE_COOKIES !== 'false'
+      : process.env.NODE_ENV === 'production';
+
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     sameSite: 'lax',
     maxAge: EXPIRY_SECONDS,
     path: '/',
