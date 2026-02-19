@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractPlaylistId } from './youtube-player-bar';
+import { extractPlaylistId } from './youtube';
 
 describe('extractPlaylistId', () => {
   it('extracts playlist ID from a standard YouTube playlist URL', () => {

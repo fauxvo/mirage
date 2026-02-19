@@ -21,15 +21,7 @@ import {
   Music,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-export function extractPlaylistId(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return parsed.searchParams.get('list');
-  } catch {
-    return null;
-  }
-}
+import { extractPlaylistId } from '@/lib/youtube';
 
 export interface YouTubePlayerBarHandle {
   togglePlayPause: () => void;
@@ -65,6 +57,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
     const [trackTitle, setTrackTitle] = useState('');
     const [trackArtist, setTrackArtist] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [hasError, setHasError] = useState(false);
 
     const playlistId = extractPlaylistId(playlistUrl);
     const instanceId = useId().replace(/:/g, '');
@@ -88,6 +81,8 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
     useEffect(() => {
       if (!playlistId) return;
 
+      const container = containerRef.current;
+
       // If API already loaded, initialize player directly
       if (window.YT?.Player) {
         initPlayer();
@@ -109,12 +104,12 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
       }
 
       function initPlayer() {
-        if (!containerRef.current || playerRef.current) return;
+        if (!container || playerRef.current) return;
 
         // Create a div for the player inside our container
         const playerDiv = document.createElement('div');
         playerDiv.id = `yt-player-${instanceId}`;
-        containerRef.current.appendChild(playerDiv);
+        container.appendChild(playerDiv);
 
         playerRef.current = new YT.Player(playerDiv.id, {
           height: '1',
@@ -144,6 +139,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
             },
             onError: () => {
               setTrackTitle('Playlist unavailable');
+              setHasError(true);
               setIsReady(false);
             },
           },
@@ -154,6 +150,10 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
         if (progressTimerRef.current) clearInterval(progressTimerRef.current);
         playerRef.current?.destroy();
         playerRef.current = null;
+        setIsReady(false);
+        setHasError(false);
+        // Remove stale player div(s) so re-runs don't accumulate DOM nodes
+        if (container) container.innerHTML = '';
         // Restore previous callback to avoid stale closure accumulation
         window.onYouTubeIframeAPIReady = prevCallback;
       };
@@ -163,10 +163,9 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
     useEffect(() => {
       if (isPlaying) {
         progressTimerRef.current = setInterval(() => {
-          if (playerRef.current) {
-            setCurrentTime(playerRef.current.getCurrentTime());
-            setDuration(playerRef.current.getDuration());
-          }
+          if (document.hidden || !playerRef.current) return;
+          setCurrentTime(playerRef.current.getCurrentTime());
+          setDuration(playerRef.current.getDuration());
         }, 250);
       } else {
         if (progressTimerRef.current) {
@@ -326,7 +325,12 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                     <Music className="w-3.5 h-3.5 text-white/30" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs text-white/70 truncate font-medium">
+                    <p
+                      className={cn(
+                        'text-xs truncate font-medium',
+                        hasError ? 'text-red-400/70' : 'text-white/70'
+                      )}
+                    >
                       {trackTitle || 'No track loaded'}
                     </p>
                     {trackArtist && (
@@ -419,6 +423,7 @@ export const YouTubePlayerBar = forwardRef<YouTubePlayerBarHandle, YouTubePlayer
                   max={100}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
+                  aria-label="Volume"
                   className="w-20 h-1 accent-white/60 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white/70"
                 />
                 <button

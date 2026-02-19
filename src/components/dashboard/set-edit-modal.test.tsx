@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SetEditModal } from './set-edit-modal';
 
-// Mock extractPlaylistId — we only need to control its return value
-vi.mock('@/components/visualizer/youtube-player-bar', () => ({
+// Mock the youtube utility — lightweight, no component dependency
+vi.mock('@/lib/youtube', () => ({
   extractPlaylistId: (url: string) => {
     try {
       return new URL(url).searchParams.get('list');

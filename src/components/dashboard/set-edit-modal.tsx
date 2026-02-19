@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { extractPlaylistId } from '@/components/visualizer/youtube-player-bar';
+import { extractPlaylistId } from '@/lib/youtube';
 import type { SetListItem } from '@/types/api';
 
 interface SetEditModalProps {

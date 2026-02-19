@@ -12,9 +12,9 @@ import { CueSwitcherBar, type CueSummary } from '@/components/visualizer/cue-swi
 import { CueToast } from '@/components/visualizer/cue-toast';
 import {
   YouTubePlayerBar,
-  extractPlaylistId,
   type YouTubePlayerBarHandle,
 } from '@/components/visualizer/youtube-player-bar';
+import { extractPlaylistId } from '@/lib/youtube';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -290,7 +290,12 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLButtonElement
+      )
+        return;
 
       // YouTube controls: Space = play/pause, Shift+Arrow = next/prev
       if (e.key === ' ' && youtubePlayerRef.current && setYoutubePlaylistUrl) {
