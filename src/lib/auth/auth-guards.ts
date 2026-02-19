@@ -1,8 +1,13 @@
-import { verifySession } from './session';
+import { NextResponse } from 'next/server';
+import { verifySession, type SessionPayload } from './session';
 import { userRepository } from '@/db/repositories/user.repository';
 import { errorResponse } from '@/lib/api-utils';
 
-export async function requireAdmin() {
+type AuthSuccess = { session: SessionPayload; error: null };
+type AuthError = { session: null; error: NextResponse };
+export type AuthResult = AuthSuccess | AuthError;
+
+export async function requireAdmin(): Promise<AuthResult> {
   const session = await verifySession();
   if (!session) {
     return { session: null, error: errorResponse('Authentication required', 401) };
@@ -20,7 +25,7 @@ export async function requireAdmin() {
   return { session, error: null };
 }
 
-export async function requireAuth() {
+export async function requireAuth(): Promise<AuthResult> {
   const session = await verifySession();
   if (!session) {
     return { session: null, error: errorResponse('Authentication required', 401) };

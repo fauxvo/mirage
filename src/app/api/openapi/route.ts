@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import {
   visualizerConfigJsonSchema,
-  createSessionJsonSchema,
-  updateSessionJsonSchema,
+  createSetJsonSchema,
+  updateSetJsonSchema,
+  createCueJsonSchema,
+  updateCueJsonSchema,
 } from '@/lib/schemas';
 
 export async function GET() {
@@ -10,84 +12,159 @@ export async function GET() {
     openapi: '3.1.0',
     info: {
       title: 'Mirage API',
-      version: '0.1.0',
-      description: 'Real-time 3D music visualizer - session management API',
+      version: '0.2.0',
+      description: 'Real-time 3D music visualizer - set and cue management API',
     },
     paths: {
-      '/api/sessions': {
+      '/api/sets': {
         post: {
-          summary: 'Create a new visualizer session',
-          security: [{ apiKey: [] }],
+          summary: 'Create a new set with a default cue',
+          security: [{ cookieAuth: [] }],
           requestBody: {
             content: {
               'application/json': {
-                schema: createSessionJsonSchema,
+                schema: createSetJsonSchema,
               },
             },
           },
           responses: {
-            '201': {
-              description: 'Session created',
-              content: {
-                'application/json': {
-                  schema: {
+            '201': { description: 'Set created with default cue' },
+            '401': { description: 'Authentication required' },
+          },
+        },
+        get: {
+          summary: "List current user's sets",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            '200': { description: "User's sets" },
+            '401': { description: 'Authentication required' },
+          },
+        },
+      },
+      '/api/sets/{id}': {
+        get: {
+          summary: 'Get set with all cues (public if is_public)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Set with cues' },
+            '404': { description: 'Set not found' },
+          },
+        },
+        put: {
+          summary: 'Update set metadata (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: updateSetJsonSchema,
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Set updated' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Set not found' },
+          },
+        },
+        delete: {
+          summary: 'Delete set and all cues (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Set deleted' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Set not found' },
+          },
+        },
+      },
+      '/api/sets/{id}/cues': {
+        post: {
+          summary: 'Add a cue to a set (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: createCueJsonSchema,
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Cue created' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Set not found' },
+          },
+        },
+      },
+      '/api/sets/{id}/cues/{cueId}': {
+        put: {
+          summary: 'Update a cue (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'cueId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: updateCueJsonSchema,
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Cue updated' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Cue not found' },
+          },
+        },
+        delete: {
+          summary: 'Delete a cue (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'cueId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': { description: 'Cue deleted' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Cue not found' },
+          },
+        },
+      },
+      '/api/sets/{id}/cues/reorder': {
+        put: {
+          summary: 'Reorder cues in a set (owner only)',
+          security: [{ cookieAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
                     type: 'object',
                     properties: {
-                      success: { type: 'boolean' },
-                      data: {
-                        type: 'object',
-                        properties: {
-                          sessionId: { type: 'string' },
-                          adminToken: { type: 'string' },
-                          url: { type: 'string' },
-                        },
-                      },
+                      id: { type: 'string' },
+                      position: { type: 'integer', minimum: 1 },
                     },
+                    required: ['id', 'position'],
                   },
                 },
               },
             },
           },
-        },
-      },
-      '/api/sessions/{id}': {
-        get: {
-          summary: 'Get session details (public)',
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
-            '200': { description: 'Session details' },
-            '404': { description: 'Session not found' },
-          },
-        },
-        put: {
-          summary: 'Update session (admin token required)',
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-          requestBody: {
-            content: {
-              'application/json': {
-                schema: updateSessionJsonSchema,
-              },
-            },
-          },
-          responses: {
-            '200': { description: 'Session updated' },
-            '403': { description: 'Invalid admin token' },
-            '404': { description: 'Session not found' },
-          },
-        },
-        delete: {
-          summary: 'Delete session (admin token required)',
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-          responses: {
-            '200': { description: 'Session deleted' },
-            '403': { description: 'Invalid admin token' },
-            '404': { description: 'Session not found' },
+            '200': { description: 'Cues reordered' },
+            '403': { description: 'Forbidden' },
+            '404': { description: 'Set not found' },
           },
         },
       },
       '/api/upload': {
         post: {
           summary: 'Upload texture image',
+          security: [{ cookieAuth: [] }],
           requestBody: {
             content: {
               'multipart/form-data': {
@@ -117,6 +194,11 @@ export async function GET() {
     },
     components: {
       securitySchemes: {
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'mirage-session',
+        },
         apiKey: {
           type: 'apiKey',
           in: 'header',
@@ -125,8 +207,10 @@ export async function GET() {
       },
       schemas: {
         VisualizerConfig: visualizerConfigJsonSchema,
-        CreateSession: createSessionJsonSchema,
-        UpdateSession: updateSessionJsonSchema,
+        CreateSet: createSetJsonSchema,
+        UpdateSet: updateSetJsonSchema,
+        CreateCue: createCueJsonSchema,
+        UpdateCue: updateCueJsonSchema,
       },
     },
   };

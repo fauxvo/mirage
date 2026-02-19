@@ -27,23 +27,56 @@ export const VisualizerConfigSchema = z.object({
   sceneParams: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])).optional(),
 });
 
-export const CreateSessionSchema = z.object({
-  config: VisualizerConfigSchema.optional(),
+// Set schemas
+export const CreateSetSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  youtubePlaylistUrl: z.string().url().optional(),
+  isPublic: z.boolean().optional().default(true),
+});
+
+export const UpdateSetSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  youtubePlaylistUrl: z.string().url().nullable().optional(),
+  isPublic: z.boolean().optional(),
+});
+
+// Cue schemas
+export const CreateCueSchema = z.object({
+  name: z.string().min(1).max(100),
+  config: VisualizerConfigSchema,
+  position: z.number().int().min(1).optional(),
   textureUrl: z.string().nullable().optional(),
 });
 
-export const UpdateSessionSchema = z.object({
+export const UpdateCueSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
   config: VisualizerConfigSchema.optional(),
+  position: z.number().int().min(1).optional(),
   textureUrl: z.string().nullable().optional(),
 });
+
+export const ReorderCuesSchema = z.array(
+  z.object({
+    id: z.string(),
+    position: z.number().int().min(1),
+  })
+);
 
 // JSON Schema exports for OpenAPI
 export const visualizerConfigJsonSchema = z.toJSONSchema(VisualizerConfigSchema, {
   target: 'draft-2020-12',
 });
-export const createSessionJsonSchema = z.toJSONSchema(CreateSessionSchema, {
+export const createSetJsonSchema = z.toJSONSchema(CreateSetSchema, {
   target: 'draft-2020-12',
 });
-export const updateSessionJsonSchema = z.toJSONSchema(UpdateSessionSchema, {
+export const updateSetJsonSchema = z.toJSONSchema(UpdateSetSchema, {
+  target: 'draft-2020-12',
+});
+export const createCueJsonSchema = z.toJSONSchema(CreateCueSchema, {
+  target: 'draft-2020-12',
+});
+export const updateCueJsonSchema = z.toJSONSchema(UpdateCueSchema, {
   target: 'draft-2020-12',
 });

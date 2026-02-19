@@ -19,12 +19,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN adduser --system --uid 1001 mirage
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=mirage:bun /app/.next/standalone ./
-COPY --from=builder --chown=mirage:bun /app/.next/static ./.next/static
+COPY --from=builder --chown=bun:bun /app/.next/standalone ./
+COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
-USER mirage
+USER bun
 EXPOSE 4444
 ENV PORT=4444
 ENV HOSTNAME="0.0.0.0"

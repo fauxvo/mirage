@@ -10,9 +10,9 @@ import { jwtVerify } from 'jose';
 
 const mockJwtVerify = vi.mocked(jwtVerify);
 
-function makeRequest(pathname: string, token?: string): NextRequest {
+function makeRequest(pathname: string, token?: string, method: string = 'GET'): NextRequest {
   const url = `http://localhost:4444${pathname}`;
-  const req = new NextRequest(url);
+  const req = new NextRequest(url, { method });
   if (token) {
     req.cookies.set('mirage-session', token);
   }
@@ -42,14 +42,36 @@ describe('proxy', () => {
       '/api/auth/login',
       '/api/health',
       '/api/openapi',
-      '/api/sessions/abc',
       '/api/textures/img.png',
-      '/sessions',
-      '/sessions/list',
       '/_next/static/chunk.js',
     ])('allows %s without auth', async (path) => {
       const res = await proxy(makeRequest(path));
       expect(res.status).toBe(200);
+    });
+
+    it('allows GET /api/sets/{id} without auth (public sets)', async () => {
+      const res = await proxy(makeRequest('/api/sets/abc'));
+      expect(res.status).toBe(200);
+    });
+
+    it('requires auth for POST /api/sets (create)', async () => {
+      const res = await proxy(makeRequest('/api/sets', undefined, 'POST'));
+      expect(res.status).toBe(401);
+    });
+
+    it('requires auth for PUT /api/sets/{id} (update)', async () => {
+      const res = await proxy(makeRequest('/api/sets/abc', undefined, 'PUT'));
+      expect(res.status).toBe(401);
+    });
+
+    it('requires auth for DELETE /api/sets/{id}', async () => {
+      const res = await proxy(makeRequest('/api/sets/abc', undefined, 'DELETE'));
+      expect(res.status).toBe(401);
+    });
+
+    it('requires auth for /api/sets/{id}/cues subroutes', async () => {
+      const res = await proxy(makeRequest('/api/sets/abc/cues'));
+      expect(res.status).toBe(401);
     });
   });
 

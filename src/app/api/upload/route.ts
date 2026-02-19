@@ -1,25 +1,26 @@
 import { NextRequest } from 'next/server';
 import { nanoid } from 'nanoid';
 import { isS3Configured, uploadTexture } from '@/lib/s3';
-import { sessionRepository } from '@/db/repositories/session.repository';
-import { validateAdminToken } from '@/lib/creator-token';
+import { requireAuth } from '@/lib/auth/auth-guards';
+import { setRepository } from '@/db/repositories/set.repository';
+import { cueRepository } from '@/db/repositories/cue.repository';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
 export async function POST(request: NextRequest) {
-  const sessionId = request.headers.get('x-session-id');
-  const adminToken = request.headers.get('x-admin-token');
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
-  if (!sessionId) {
-    return errorResponse('Missing x-session-id header', 400);
+  const setId = request.headers.get('x-set-id');
+  if (!setId) {
+    return errorResponse('Missing x-set-id header', 400);
   }
 
-  const session = await sessionRepository.findById(sessionId);
-  if (!session) {
-    return errorResponse('Session not found', 404);
+  const set = await setRepository.findById(setId);
+  if (!set) {
+    return errorResponse('Set not found', 404);
   }
-
-  if (!validateAdminToken(adminToken, session.adminToken)) {
-    return errorResponse('Invalid admin token', 403);
+  if (set.userId !== session.userId) {
+    return errorResponse('Forbidden', 403);
   }
 
   if (!isS3Configured()) {
@@ -41,12 +42,19 @@ export async function POST(request: NextRequest) {
   }
 
   const ext = file.type.split('/')[1] || 'png';
-  const key = `textures/${sessionId}/${nanoid(8)}.${ext}`;
+  const key = `textures/${setId}/${nanoid(8)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const url = await uploadTexture(key, buffer, file.type);
 
-  await sessionRepository.update(sessionId, { textureUrl: url });
+  // Optionally persist textureUrl to a specific cue
+  const cueId = request.headers.get('x-cue-id');
+  if (cueId) {
+    const cue = await cueRepository.findBySetIdAndId(setId, cueId);
+    if (cue) {
+      await cueRepository.update(cueId, { textureUrl: url });
+    }
+  }
 
   return successResponse({ url }, 201);
 }

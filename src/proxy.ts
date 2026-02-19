@@ -10,17 +10,20 @@ const PUBLIC_PREFIXES = [
   '/api/auth/',
   '/api/health',
   '/api/openapi',
-  '/api/sessions',
   '/api/textures/',
-  '/sessions',
   '/_next/',
   '/favicon',
 ];
 
 const ADMIN_PREFIXES = ['/admin', '/api/admin/', '/api/users'];
 
-function isPublic(pathname: string): boolean {
+// Matches GET /api/sets/{id} but NOT /api/sets or /api/sets/{id}/cues/...
+const PUBLIC_SET_GET_PATTERN = /^\/api\/sets\/[^/]+$/;
+
+function isPublic(pathname: string, method: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
+  // Only GET requests for individual sets are public (route handler enforces ownership)
+  if (method === 'GET' && PUBLIC_SET_GET_PATTERN.test(pathname)) return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
@@ -43,7 +46,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes — no auth needed
-  if (isPublic(pathname)) {
+  if (isPublic(pathname, request.method)) {
     return NextResponse.next();
   }
 
