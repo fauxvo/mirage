@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 
 interface HelpModalProps {
   onClose: () => void;
+  hasYoutubePlaylist?: boolean;
 }
 
-export function HelpModal({ onClose }: HelpModalProps) {
+export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
   const [section, setSection] = useState<string>('overview');
 
   const sections = [
@@ -209,6 +210,13 @@ export function HelpModal({ onClose }: HelpModalProps) {
                   ['Esc', 'Close settings / help or exit fullscreen'],
                   ['M', 'Toggle mic audio on/off'],
                   ['1-9', 'Switch to cue by position (when viewing a set)'],
+                  ...(hasYoutubePlaylist
+                    ? ([
+                        ['Space', 'Play / Pause YouTube'],
+                        ['Shift + Right', 'Next track'],
+                        ['Shift + Left', 'Previous track'],
+                      ] as [string, string][])
+                    : []),
                 ]}
               />
             </HelpContent>

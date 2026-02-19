@@ -10,6 +10,11 @@ import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-sett
 import { HelpModal } from '@/components/settings/help-modal';
 import { CueSwitcherBar, type CueSummary } from '@/components/visualizer/cue-switcher-bar';
 import { CueToast } from '@/components/visualizer/cue-toast';
+import {
+  YouTubePlayerBar,
+  extractPlaylistId,
+  type YouTubePlayerBarHandle,
+} from '@/components/visualizer/youtube-player-bar';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
 import type { VisualizerConfig, VisualizerColorPalette } from '@/types/visualizer';
 
@@ -73,9 +78,11 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
   const [setDescription, setSetDescription] = useState<string | null>(null);
   const [setYoutubePlaylistUrl, setSetYoutubePlaylistUrl] = useState<string | null>(null);
   const [setIsPublic, setSetIsPublic] = useState(false);
+  const [youtubeBarVisible, setYoutubeBarVisible] = useState(false);
   const cueFadeFrameRef = useRef<number | null>(null);
   const switchCueRef = useRef<((cueId: string) => void) | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const youtubePlayerRef = useRef<YouTubePlayerBarHandle>(null);
 
   // Helper to keep configRef in sync with config state
   const updateConfig = useCallback((c: VisualizerConfig) => {
@@ -285,6 +292,23 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     const handleKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+      // YouTube controls: Space = play/pause, Shift+Arrow = next/prev
+      if (e.key === ' ' && youtubePlayerRef.current && setYoutubePlaylistUrl) {
+        e.preventDefault();
+        youtubePlayerRef.current.togglePlayPause();
+        return;
+      }
+      if (e.shiftKey && e.key === 'ArrowRight' && youtubePlayerRef.current) {
+        e.preventDefault();
+        youtubePlayerRef.current.nextTrack();
+        return;
+      }
+      if (e.shiftKey && e.key === 'ArrowLeft' && youtubePlayerRef.current) {
+        e.preventDefault();
+        youtubePlayerRef.current.prevTrack();
+        return;
+      }
+
       // 1-9: Switch cues by position
       const digit = parseInt(e.key);
       if (digit >= 1 && digit <= 9 && cues.length > 0) {
@@ -324,7 +348,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showSettings, showHelp, initMicAudio, stopMicAudio, cues]);
+  }, [showSettings, showHelp, initMicAudio, stopMicAudio, cues, setYoutubePlaylistUrl]);
 
   // Debounced save
   const saveConfig = useCallback(
@@ -546,6 +570,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
+  const hasYoutubePlaylist =
+    !isNewSession && !!setYoutubePlaylistUrl && !!extractPlaylistId(setYoutubePlaylistUrl);
+
   return (
     <div
       className="fixed inset-0 bg-black"
@@ -650,6 +677,15 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         />
       )}
 
+      {/* YouTube player bar */}
+      {hasYoutubePlaylist && (
+        <YouTubePlayerBar
+          ref={youtubePlayerRef}
+          playlistUrl={setYoutubePlaylistUrl!}
+          onVisibilityChange={setYoutubeBarVisible}
+        />
+      )}
+
       {/* Cue switcher bar */}
       {!isNewSession && cues.length > 0 && (
         <CueSwitcherBar
@@ -657,6 +693,7 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
           cues={cues}
           activeCueId={activeCueId}
           onSwitchCue={switchCue}
+          bottomOffset={youtubeBarVisible ? 'bottom-20' : 'bottom-4'}
         />
       )}
 
@@ -664,7 +701,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
       <CueToast message={toastMessage} onDismiss={dismissToast} />
 
       {/* Help Modal - rendered at page level so it's not clipped by sidebar */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showHelp && (
+        <HelpModal onClose={() => setShowHelp(false)} hasYoutubePlaylist={hasYoutubePlaylist} />
+      )}
     </div>
   );
 }
