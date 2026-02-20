@@ -204,7 +204,7 @@ export class VisualizerEngine {
 
     this.positionCamera();
 
-    // Expose camera to scene handlers (used by 'fixed' texture motion for billboarding)
+    // IMPORTANT: Set camera before createScene — scenes read it from userData in their constructor
     (this.scene.userData as SceneUserData).camera = this.camera;
 
     this.sceneHandler = createScene(sceneType, this.scene, this.config);

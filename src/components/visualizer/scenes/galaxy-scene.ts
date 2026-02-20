@@ -221,6 +221,7 @@ export class GalaxyScene {
       if ((this.config.textureMotion ?? 'none') !== 'fixed') {
         this.texturePlane.rotation.z = transform.rotation;
         this.texturePlane.position.x = transform.offsetX * 2;
+        // Z not Y — the galaxy plane is horizontal so Z maps to visual "up/down"
         this.texturePlane.position.z = transform.offsetY * 2;
       }
       // Motion scale (e.g. bounce squash) applied to mesh

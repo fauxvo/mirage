@@ -171,7 +171,6 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
               <p className="text-xs text-red-400/70">Failed to load cues</p>
               <button
                 onClick={() => {
-                  setCues(null);
                   setCueError(false);
                   loadCues();
                 }}

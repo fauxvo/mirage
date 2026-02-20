@@ -81,20 +81,18 @@ export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
                 responds to audio differently.
               </HelpParagraph>
               <HelpItem title="Organic">
-                Natural, flowing visuals: auroras, oceans, nebulae, lava, metaballs.
+                Natural, flowing visuals: auroras, particles, oceans, lava, metaballs.
               </HelpItem>
               <HelpItem title="Cosmic">
-                Space-themed: particles, galaxies, starfields, swarm.
+                Space-themed: galaxies, starfields, nebula, vortex, swarm.
               </HelpItem>
               <HelpItem title="Geometric">
-                Mathematical precision: rings, kaleidoscopes, voronoi, grid.
+                Mathematical precision: rings, orb, kaleidoscopes, voronoi, grid.
               </HelpItem>
               <HelpItem title="Abstract">
-                Artistic shapes: orbs, fractals, waveforms, matrix, lattice.
+                Artistic shapes: fractals, waveforms, matrix, lattice.
               </HelpItem>
-              <HelpItem title="Immersive">
-                Full-environment: tunnels, terrain, vortex, starbursts.
-              </HelpItem>
+              <HelpItem title="Immersive">Full-environment: tunnels, terrain, starbursts.</HelpItem>
               <HelpItem title="Starburst Family">
                 Four starburst variants centre your custom texture over radiating rays.
                 <strong> Starburst</strong> is the standard,
