@@ -14,12 +14,14 @@ export class GalaxyScene {
   private basePositions: Float32Array;
   private clock: THREE.Clock;
   private particleCount: number;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     private config: VisualizerConfig
   ) {
     this.clock = new THREE.Clock();
+    this.camera = scene.userData.camera as THREE.Camera;
     const palette = config.colorPalette;
     this.particleCount = Math.floor(4000 * config.particleDensity + 2000);
 
@@ -126,10 +128,9 @@ export class GalaxyScene {
       if (motionMode === 'fixed') {
         const offsetX = this.config.patternOffsetX ?? 0;
         const offsetY = this.config.patternOffsetY ?? 0;
-        applyFixedMotion(this.texturePlane, this.scene, offsetX, offsetY);
-      } else {
-        this.texturePlane.rotation.y = time * 0.1;
+        applyFixedMotion(this.texturePlane, this.camera, offsetX, offsetY);
       }
+      // Non-fixed motion delegates rotation/position to setTextureTransform
     } else {
       this.coreGlow.scale.setScalar(coreScale);
       this.coreMaterial.opacity = 0.4 + bass * r * 0.4;
@@ -166,6 +167,10 @@ export class GalaxyScene {
   }
 
   setTexture(texture: THREE.Texture | null): void {
+    // Apply texture to particles as point sprites
+    this.material.map = texture;
+    this.material.needsUpdate = true;
+
     if (texture) {
       // Hide core glow, show texture plane at centre
       this.coreGlow.visible = false;

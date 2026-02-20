@@ -8,7 +8,6 @@ vi.mock('@/lib/auth/auth-guards', () => ({
 vi.mock('@/db/repositories/set.repository', () => ({
   setRepository: {
     create: vi.fn(),
-    listByUser: vi.fn(),
     listByUserWithCueCount: vi.fn(),
   },
 }));

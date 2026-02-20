@@ -9,9 +9,26 @@ interface SliderControlProps {
   max: number;
   step: number;
   onChange: (value: number) => void;
+  /** Optional nonlinear transform: converts display value (0-1) ↔ real value. */
+  transform?: {
+    /** Convert real value → slider position. */
+    toSlider: (value: number) => number;
+    /** Convert slider position → real value. */
+    fromSlider: (slider: number) => number;
+  };
 }
 
-export function SliderControl({ label, value, min, max, step, onChange }: SliderControlProps) {
+export function SliderControl({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  transform,
+}: SliderControlProps) {
+  const sliderValue = transform ? transform.toSlider(value) : value;
+
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
@@ -25,8 +42,11 @@ export function SliderControl({ label, value, min, max, step, onChange }: Slider
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        value={sliderValue}
+        onChange={(e) => {
+          const raw = parseFloat(e.target.value);
+          onChange(transform ? transform.fromSlider(raw) : raw);
+        }}
         className="w-full h-1.5 appearance-none bg-white/10 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
       />
     </section>

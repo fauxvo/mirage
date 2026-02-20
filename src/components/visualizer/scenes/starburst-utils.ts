@@ -97,20 +97,13 @@ const _up = new THREE.Vector3();
 /**
  * Billboard the logo mesh to always face the camera and apply offsets in
  * camera-local space so the texture stays screen-centred during camera orbit.
- * Requires `scene.userData.camera` to be set by the engine.
  */
 export function applyFixedMotion(
   logoMesh: THREE.Mesh,
-  scene: THREE.Scene,
+  camera: THREE.Camera,
   offsetX: number,
   offsetY: number
 ): void {
-  const camera = scene.userData.camera as THREE.PerspectiveCamera | undefined;
-  if (!camera) {
-    console.warn('applyFixedMotion: scene.userData.camera not set — fixed motion disabled');
-    return;
-  }
-
   // Billboard: rotate plane to face camera
   logoMesh.lookAt(camera.position);
 

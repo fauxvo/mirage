@@ -116,16 +116,18 @@ export class StarburstSoftScene {
   private logoMaterial: THREE.ShaderMaterial;
   private clock: THREE.Clock;
   private config: VisualizerConfig;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     config: VisualizerConfig
   ) {
     this.config = config;
+    this.camera = scene.userData.camera as THREE.Camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    const burstGeo = new THREE.SphereGeometry(50, 64, 32);
+    const burstGeo = new THREE.SphereGeometry(50, 32, 16);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -204,7 +206,7 @@ export class StarburstSoftScene {
     // Texture motion
     const motionMode = this.config.textureMotion ?? 'none';
     if (motionMode === 'fixed') {
-      applyFixedMotion(this.logoMesh, this.scene, offsetX, offsetY);
+      applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
     } else {
       this.logoMesh.rotation.x = 0;
       this.logoMesh.rotation.y = 0;

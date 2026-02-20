@@ -611,73 +611,86 @@ export function VisualizerSettingsPanel({
               <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
                 Camera Movement
               </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(
-                  [
-                    {
-                      value: 'static',
-                      label: 'Static',
-                      desc: 'Fixed position, faces scene head-on',
-                    },
-                    {
-                      value: 'orbit',
-                      label: 'Orbit',
-                      desc: 'Oscillates side-to-side around the scene',
-                    },
-                    {
-                      value: 'drift',
-                      label: 'Drift',
-                      desc: 'Gentle sway side-to-side with subtle bob',
-                    },
-                    {
-                      value: 'pulse',
-                      label: 'Pulse',
-                      desc: 'Zooms in on bass hits, pulls back when quiet',
-                    },
-                  ] as const
-                ).map((mode) => (
-                  <button
-                    key={mode.value}
-                    onClick={() => onQuickChange({ cameraMovement: mode.value })}
-                    className={cn(
-                      'px-2.5 py-2 rounded-lg text-left transition-all',
-                      config.cameraMovement === mode.value
-                        ? 'bg-white/20 border border-white/30'
-                        : 'bg-white/5 border border-transparent hover:bg-white/10'
+              {(() => {
+                const hint = sceneMeta?.cameraHint ?? 'default';
+                const cameraLocked = hint === 'small-plane' || hint === 'low-angle';
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          {
+                            value: 'static',
+                            label: 'Static',
+                            desc: 'Fixed position, faces scene head-on',
+                          },
+                          {
+                            value: 'orbit',
+                            label: 'Orbit',
+                            desc: 'Oscillates side-to-side around the scene',
+                          },
+                          {
+                            value: 'drift',
+                            label: 'Drift',
+                            desc: 'Gentle sway side-to-side with subtle bob',
+                          },
+                          {
+                            value: 'pulse',
+                            label: 'Pulse',
+                            desc: 'Zooms in on bass hits, pulls back when quiet',
+                          },
+                        ] as const
+                      ).map((mode) => {
+                        const disabled = cameraLocked && mode.value !== 'static';
+                        return (
+                          <button
+                            key={mode.value}
+                            onClick={() =>
+                              !disabled && onQuickChange({ cameraMovement: mode.value })
+                            }
+                            disabled={disabled}
+                            className={cn(
+                              'px-2.5 py-2 rounded-lg text-left transition-all',
+                              disabled
+                                ? 'bg-white/3 border border-transparent opacity-30 cursor-not-allowed'
+                                : config.cameraMovement === mode.value
+                                  ? 'bg-white/20 border border-white/30'
+                                  : 'bg-white/5 border border-transparent hover:bg-white/10'
+                            )}
+                          >
+                            <span className="block text-xs font-medium text-white/80">
+                              {mode.label}
+                            </span>
+                            <span className="block text-[9px] text-white/35 leading-tight mt-0.5">
+                              {mode.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {cameraLocked && (
+                      <p className="mt-1.5 text-white/30 text-[9px]">
+                        Camera movement is locked for this scene type
+                      </p>
                     )}
-                  >
-                    <span className="block text-xs font-medium text-white/80">{mode.label}</span>
-                    <span className="block text-[9px] text-white/35 leading-tight mt-0.5">
-                      {mode.desc}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                  </>
+                );
+              })()}
             </section>
 
             {/* Bloom Intensity — quadratic curve so most slider travel covers the subtle range */}
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                  Bloom Intensity
-                </label>
-                <span className="text-white/40 text-xs font-mono">
-                  {config.bloomIntensity.toFixed(1)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.005}
-                value={Math.sqrt(config.bloomIntensity / 3)}
-                onChange={(e) => {
-                  const t = parseFloat(e.target.value);
-                  onQuickChange({ bloomIntensity: Math.round(t * t * 3 * 20) / 20 });
-                }}
-                className="w-full h-1.5 appearance-none bg-white/10 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
-              />
-            </section>
+            <SliderControl
+              label="Bloom Intensity"
+              value={Math.round(config.bloomIntensity * 10) / 10}
+              min={0}
+              max={1}
+              step={0.005}
+              transform={{
+                toSlider: (v) => Math.sqrt(v / 3),
+                fromSlider: (t) => Math.round(t * t * 3 * 20) / 20,
+              }}
+              onChange={(v) => onQuickChange({ bloomIntensity: v })}
+            />
 
             {/* Audio Reactivity - only meaningful when audio input is on */}
             {audioInputEnabled && (
@@ -794,6 +807,37 @@ export function VisualizerSettingsPanel({
                           )}
                         />
                       </button>
+                    </div>
+                  </section>
+                );
+              }
+              if (param.type === 'select' && param.options) {
+                const currentValue =
+                  (config.sceneParams?.[param.key] as string) ?? (param.default as string);
+                return (
+                  <section key={param.key}>
+                    <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                      {param.label}
+                    </label>
+                    <div className="flex flex-wrap gap-1">
+                      {param.options.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() =>
+                            onQuickChange({
+                              sceneParams: { ...config.sceneParams, [param.key]: opt.value },
+                            })
+                          }
+                          className={cn(
+                            'px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all',
+                            currentValue === opt.value
+                              ? 'bg-white/20 text-white border border-white/30'
+                              : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-transparent'
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
                     </div>
                   </section>
                 );

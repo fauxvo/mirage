@@ -30,7 +30,7 @@ export interface SceneParamDef {
   max?: number;
   step?: number;
   default: number | boolean | string;
-  options?: string[];
+  options?: { label: string; value: string }[];
 }
 
 /** Optional feature flags a scene can declare to surface extra controls. */

@@ -181,6 +181,7 @@ export class LatticeScene {
     }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uPointSize.value = LatticeScene.BASE_POINT_SIZE * config.textureScale;
+      this.material.uniforms.uTextureScale.value = config.textureScale;
     }
     this.config = { ...this.config, ...config };
   }

@@ -271,7 +271,11 @@ const METADATA: SceneRegistration = {
       key: 'wavePattern',
       label: 'Wave Pattern',
       type: 'select',
-      options: ['diagonal', 'radial', 'rows'],
+      options: [
+        { label: 'Diagonal', value: 'diagonal' },
+        { label: 'Radial', value: 'radial' },
+        { label: 'Rows', value: 'rows' },
+      ],
       default: 'diagonal',
     },
   ],

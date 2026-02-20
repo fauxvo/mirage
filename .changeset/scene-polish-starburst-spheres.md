@@ -59,6 +59,7 @@ Scene polish, engine hardening, GLSL deduplication, and UX fixes
 
 ### Cleanup
 
-- Remove geometric, starburst-flat, and starburst-spin scenes (22 scenes total)
+- Remove geometric, starburst-flat, and starburst-spin scenes
+- Add swarm, grid, and lattice scenes (25 scenes total)
 - Consolidate duplicate camera scene sets in visualizer engine
 - Deduplicate TextureAnimation/TextureMotion type declarations

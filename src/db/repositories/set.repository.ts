@@ -54,10 +54,6 @@ export class SetRepository {
     return { ...set, cues: setCues };
   }
 
-  async listByUser(userId: string) {
-    return this.db.select().from(sets).where(eq(sets.userId, userId)).orderBy(sets.createdAt);
-  }
-
   async listByUserWithCueCount(userId: string) {
     return this.db
       .select({
