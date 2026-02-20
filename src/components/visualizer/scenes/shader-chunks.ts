@@ -52,7 +52,13 @@ export function createTextureUniforms(config: { textureScale?: number; textureOp
   };
 }
 
-/** Apply engine-driven texture transform to a ShaderMaterial's uniforms. */
+/**
+ * Apply engine-driven texture transform to a ShaderMaterial's uniforms.
+ *
+ * Note: `transform.scale` (e.g. bounce squash) is intentionally NOT applied here
+ * because it represents a mesh-level squash, not a UV zoom. Scenes with separate
+ * texture meshes (galaxy, starburst) apply it to the mesh scale directly.
+ */
 export function applyTextureTransform(
   material: THREE.ShaderMaterial,
   transform: TextureTransform

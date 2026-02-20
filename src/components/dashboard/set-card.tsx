@@ -32,7 +32,7 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
 
   async function loadCues() {
-    if (cues) return;
+    if (cues || loadingCues) return;
     setLoadingCues(true);
     setCueError(false);
     try {

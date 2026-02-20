@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration, TextureTransform } from './types';
+import type { SceneRegistration, SceneUserData, TextureTransform } from './types';
 import { applyFixedMotion } from './starburst-utils';
 
 export class GalaxyScene {
@@ -21,7 +21,7 @@ export class GalaxyScene {
     private config: VisualizerConfig
   ) {
     this.clock = new THREE.Clock();
-    this.camera = scene.userData.camera as THREE.Camera;
+    this.camera = (scene.userData as SceneUserData).camera;
     const palette = config.colorPalette;
     this.particleCount = Math.floor(4000 * config.particleDensity + 2000);
 
@@ -222,6 +222,10 @@ export class GalaxyScene {
         this.texturePlane.rotation.z = transform.rotation;
         this.texturePlane.position.x = transform.offsetX * 2;
         this.texturePlane.position.z = transform.offsetY * 2;
+      }
+      // Motion scale (e.g. bounce squash) applied to mesh
+      if (transform.scale !== 1) {
+        this.texturePlane.scale.multiplyScalar(transform.scale);
       }
     }
   }

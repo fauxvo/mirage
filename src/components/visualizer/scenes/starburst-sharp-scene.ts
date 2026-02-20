@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, SceneUserData } from './types';
 import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
@@ -134,7 +134,7 @@ export class StarburstSharpScene {
     config: VisualizerConfig
   ) {
     this.config = config;
-    this.camera = scene.userData.camera as THREE.Camera;
+    this.camera = (scene.userData as SceneUserData).camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 

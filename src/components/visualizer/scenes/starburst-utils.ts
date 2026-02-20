@@ -45,6 +45,11 @@ export interface TextureMotionResult {
   rotationZ: number;
   offsetX: number;
   offsetY: number;
+  /**
+   * Mesh-level scale multiplier (e.g. bounce squash). 1 = no change.
+   * Applied to mesh scale by scenes with texture planes (starburst, galaxy).
+   * NOT applied in UV-space by shader scenes — see applyTextureTransform() comment.
+   */
   extraScale: number;
 }
 

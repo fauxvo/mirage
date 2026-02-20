@@ -6,7 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { createScene, type SceneHandler } from './scenes';
 import { getSceneMetadata } from './scenes/scene-registry';
-import type { CameraHint } from './scenes/types';
+import type { CameraHint, SceneUserData } from './scenes/types';
 import { computeAnimatedOpacity, computeTextureMotion } from './scenes/starburst-utils';
 
 export class VisualizerEngine {
@@ -205,7 +205,7 @@ export class VisualizerEngine {
     this.positionCamera();
 
     // Expose camera to scene handlers (used by 'fixed' texture motion for billboarding)
-    this.scene.userData.camera = this.camera;
+    (this.scene.userData as SceneUserData).camera = this.camera;
 
     this.sceneHandler = createScene(sceneType, this.scene, this.config);
 
@@ -309,6 +309,7 @@ export class VisualizerEngine {
         rotation: motion.rotationZ,
         offsetX: motion.offsetX,
         offsetY: motion.offsetY,
+        scale: motion.extraScale,
       });
     }
 

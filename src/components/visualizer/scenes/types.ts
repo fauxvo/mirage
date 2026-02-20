@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 
+/**
+ * Typed userData contract between the engine and scene handlers.
+ * The engine sets `scene.userData.camera` before creating scenes.
+ */
+export interface SceneUserData {
+  camera: THREE.Camera;
+}
+
 /** Texture transform values computed by the engine each frame. */
 export interface TextureTransform {
   /** Effective opacity (base * animation multiplier). */
@@ -11,6 +19,8 @@ export interface TextureTransform {
   offsetX: number;
   /** UV-space Y offset. */
   offsetY: number;
+  /** Extra scale multiplier from motion (e.g. bounce squash). 1 = no change. */
+  scale: number;
 }
 
 export interface SceneHandler {
