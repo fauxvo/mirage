@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 export class MatrixScene {
   private columns: THREE.InstancedMesh;
@@ -23,6 +29,8 @@ export class MatrixScene {
   `;
 
   private static FRAGMENT = `
+${TEXTURE_UNIFORMS}
+${TEXTURE_SAMPLE_FN}
     uniform float uTime;
     uniform float uBass;
     uniform float uMid;
@@ -30,10 +38,6 @@ export class MatrixScene {
     uniform float uSpeed;
     uniform vec3 uPrimary;
     uniform vec3 uAccent;
-    uniform sampler2D uTexture;
-    uniform bool uHasTexture;
-    uniform float uTextureScale;
-    uniform float uTextureOpacity;
     varying vec2 vUv;
     varying float vInstanceY;
 
@@ -62,10 +66,8 @@ export class MatrixScene {
       color *= max(fadeFromCenter, 0.1);
 
       if (uHasTexture) {
-        vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
-        vec4 texColor = texture2D(uTexture, texUv);
-        float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
-        color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
+        vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+        color = mix(color, tex.rgb, tex.a);
       }
 
       float alpha = glyph * 0.9;
@@ -94,10 +96,7 @@ export class MatrixScene {
         uSpeed: { value: config.animationSpeed },
         uPrimary: { value: new THREE.Color(palette.primary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
-        uTextureScale: { value: config.textureScale ?? 1.0 },
-        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
+        ...createTextureUniforms(config),
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -143,15 +142,16 @@ export class MatrixScene {
     if (config.textureScale !== undefined) {
       this.columnMaterial.uniforms.uTextureScale.value = config.textureScale;
     }
-    if (config.textureOpacity !== undefined) {
-      this.columnMaterial.uniforms.uTextureOpacity.value = config.textureOpacity;
-    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.columnMaterial.uniforms.uTexture.value = texture;
     this.columnMaterial.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.columnMaterial, transform);
   }
 
   dispose(): void {
@@ -167,7 +167,7 @@ const METADATA: SceneRegistration = {
   description: 'Falling code rain with cascading glyphs',
   category: 'immersive',
   audioDescription: 'Bass controls fall speed, mids adjust glyph density, highs cascade brightness',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -17,6 +23,8 @@ const VERTEX_SHADER = `
 `;
 
 const FRAGMENT_SHADER = `
+${TEXTURE_UNIFORMS}
+${TEXTURE_SAMPLE_FN}
   uniform float uTime;
   uniform float uBass;
   uniform float uMid;
@@ -25,10 +33,6 @@ const FRAGMENT_SHADER = `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
-  uniform float uTextureScale;
-  uniform float uTextureOpacity;
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vPosition;
@@ -85,10 +89,8 @@ const FRAGMENT_SHADER = `
     color += uAccent * fresnel * 0.3;
 
     if (uHasTexture) {
-      vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
-      vec4 texColor = texture2D(uTexture, texUv);
-      float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
-      color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -120,10 +122,7 @@ export class VoronoiScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
-        uTextureScale: { value: config.textureScale ?? 1.0 },
-        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -148,6 +147,10 @@ export class VoronoiScene {
     this.material.uniforms.uHasTexture.value = texture !== null;
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
+  }
+
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
@@ -159,9 +162,6 @@ export class VoronoiScene {
     }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
-    }
-    if (config.textureOpacity !== undefined) {
-      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
     }
     this.config = { ...this.config, ...config };
   }
@@ -179,7 +179,7 @@ const METADATA: SceneRegistration = {
   description: 'Voronoi cell pattern on a sphere',
   category: 'abstract',
   audioDescription: 'Bass scales cells, mids control border glow, highs add color variation',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [],
 };
 

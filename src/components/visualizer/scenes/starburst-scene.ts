@@ -127,20 +127,7 @@ const LOGO_FRAGMENT = `
       tex.rgb *= breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
-      // Placeholder: glowing orb
-      vec2 center = vUv - 0.5;
-      float dist = length(center);
-      float pulse = 1.0 + uBass * uReactivity * 0.2;
-
-      float orb = 1.0 - smoothstep(0.0, 0.35 * pulse, dist);
-      float ring = smoothstep(0.25, 0.3, dist) * (1.0 - smoothstep(0.3, 0.35, dist));
-
-      float shimmer = sin(atan(center.y, center.x) * 8.0 + uTime * uSpeed * 2.0) * 0.5 + 0.5;
-
-      vec3 color = mix(uPrimary, uAccent, shimmer * 0.5);
-      float alpha = orb * 0.9 + ring * 0.6;
-
-      gl_FragColor = vec4(color * (orb + ring * 0.5), alpha);
+      discard;
     }
   }
 `;
@@ -345,6 +332,7 @@ const METADATA: SceneRegistration = {
     'textureMotion',
     'patternOffset',
   ],
+  cameraHint: 'centered',
 };
 
 registerScene('starburst', (scene, config) => new StarburstScene(scene, config), METADATA);

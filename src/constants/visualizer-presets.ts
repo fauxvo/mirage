@@ -1,5 +1,5 @@
 import type { VisualizerConfig, VisualizerColorPalette, CameraMovement } from '@/types/visualizer';
-import { getAllSceneMetadata } from '@/components/visualizer/scenes';
+import { getAllSceneMetadata, getSceneMetadata } from '@/components/visualizer/scenes';
 
 export interface ColorPreset {
   id: string;
@@ -141,8 +141,11 @@ function getSceneDefaults(sceneId: string): {
   particleDensity: number;
   depth: number;
 } {
-  // Starburst scenes are fullscreen 2D shaders - keep camera static and front-on
-  if (sceneId.startsWith('starburst')) {
+  const meta = getSceneMetadata(sceneId);
+  const hint = meta?.cameraHint;
+
+  // Scenes with 'centered' hint (sphere starbursts) — keep camera static and front-on
+  if (hint === 'centered') {
     return {
       cameraMovement: 'static',
       bloomIntensity: 1.4,
@@ -153,10 +156,9 @@ function getSceneDefaults(sceneId: string): {
     };
   }
 
-  // Flat-plane shader scenes render on a single PlaneGeometry face —
+  // Scenes with 'small-plane' hint (flat-plane shaders) —
   // orbit/drift causes the camera to view the plane edge-on, showing black.
-  const FLAT_PLANE_SCENES = new Set(['fractal', 'kaleidoscope', 'tunnel', 'metaballs']);
-  if (FLAT_PLANE_SCENES.has(sceneId)) {
+  if (hint === 'small-plane') {
     return {
       cameraMovement: 'static',
       bloomIntensity: 1.5,

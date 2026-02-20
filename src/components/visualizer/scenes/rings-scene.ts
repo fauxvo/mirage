@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class RingsScene {
   private rings: THREE.Mesh[];
@@ -104,13 +104,6 @@ export class RingsScene {
         }
       }
     }
-    if (config.textureOpacity !== undefined) {
-      for (const mat of this.ringMaterials) {
-        if (mat.map) {
-          mat.opacity = config.textureOpacity;
-        }
-      }
-    }
     this.config = { ...this.config, ...config };
   }
 
@@ -133,6 +126,18 @@ export class RingsScene {
     }
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    for (const mat of this.ringMaterials) {
+      mat.opacity = transform.opacity;
+      mat.transparent = true;
+      if (mat.map) {
+        mat.map.rotation = transform.rotation;
+        mat.map.center.set(0.5, 0.5);
+        mat.map.offset.set(transform.offsetX, transform.offsetY);
+      }
+    }
+  }
+
   dispose(): void {
     this.scene.remove(this.group);
     for (const ring of this.rings) {
@@ -150,7 +155,7 @@ const METADATA: SceneRegistration = {
   description: 'Concentric ring system with varied tilts',
   category: 'geometric',
   audioDescription: 'Bass pulsates ring size, mids control rotation speeds, highs intensify glow',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [],
 };
 

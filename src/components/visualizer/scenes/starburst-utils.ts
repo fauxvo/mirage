@@ -106,7 +106,10 @@ export function applyFixedMotion(
   offsetY: number
 ): void {
   const camera = scene.userData.camera as THREE.PerspectiveCamera | undefined;
-  if (!camera) return;
+  if (!camera) {
+    console.warn('applyFixedMotion: scene.userData.camera not set — fixed motion disabled');
+    return;
+  }
 
   // Billboard: rotate plane to face camera
   logoMesh.lookAt(camera.position);

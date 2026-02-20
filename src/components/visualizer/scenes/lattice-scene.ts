@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class LatticeScene {
   private points: THREE.Points;
@@ -38,15 +44,14 @@ export class LatticeScene {
   `;
 
   private static FRAGMENT = `
+    ${TEXTURE_UNIFORMS}
+    ${TEXTURE_SAMPLE_FN}
     uniform float uTime;
     uniform float uSpeed;
     uniform float uHigh;
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
-    uniform sampler2D uTexture;
-    uniform bool uHasTexture;
-    uniform float uTextureOpacity;
 
     varying float vDist;
     varying float vPhase;
@@ -85,8 +90,8 @@ export class LatticeScene {
 
       // Texture overlay at point coord
       if (uHasTexture) {
-        vec4 texColor = texture2D(uTexture, gl_PointCoord);
-        color = mix(color, texColor.rgb, texColor.a * uTextureOpacity);
+        vec4 texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        color = mix(color, texSample.rgb, texSample.a);
       }
 
       float alpha = softEdge * 0.85;
@@ -141,9 +146,7 @@ export class LatticeScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
-        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
+        ...createTextureUniforms(config),
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -179,15 +182,16 @@ export class LatticeScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uPointSize.value = LatticeScene.BASE_POINT_SIZE * config.textureScale;
     }
-    if (config.textureOpacity !== undefined) {
-      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
-    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -204,7 +208,7 @@ const METADATA: SceneRegistration = {
   category: 'abstract',
   audioDescription:
     'Bass swells point sizes dramatically, mids control rotation, highs shift hue and brightness',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

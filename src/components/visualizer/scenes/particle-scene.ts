@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class ParticleScene {
   private particles: THREE.Points;
@@ -149,11 +149,6 @@ export class ParticleScene {
         this.material.size = ParticleScene.BASE_POINT_SIZE * config.textureScale;
       }
     }
-    if (config.textureOpacity !== undefined) {
-      this.config = { ...this.config, ...config };
-      this.material.opacity = config.textureOpacity;
-      this.material.transparent = true;
-    }
   }
 
   private static BASE_POINT_SIZE = 0.05;
@@ -171,6 +166,16 @@ export class ParticleScene {
     this.material.needsUpdate = true;
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    this.material.opacity = transform.opacity;
+    this.material.transparent = true;
+    if (this.material.map) {
+      this.material.map.rotation = transform.rotation;
+      this.material.map.center.set(0.5, 0.5);
+      this.material.map.offset.set(transform.offsetX, transform.offsetY);
+    }
+  }
+
   dispose(): void {
     this.scene.remove(this.particles);
     this.particles.geometry.dispose();
@@ -184,7 +189,7 @@ const METADATA: SceneRegistration = {
   description: 'Dynamic particle field with orbital rotation',
   category: 'cosmic',
   audioDescription: 'Bass pulses expansion, mids control orbit speed, highs boost brightness',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

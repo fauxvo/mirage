@@ -40,6 +40,7 @@ export interface SetListItem {
   description: string | null;
   youtubePlaylistUrl: string | null;
   isPublic: boolean;
+  cueCount: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -9,6 +9,7 @@ vi.mock('@/db/repositories/set.repository', () => ({
   setRepository: {
     create: vi.fn(),
     listByUser: vi.fn(),
+    listByUserWithCueCount: vi.fn(),
   },
 }));
 
@@ -35,7 +36,7 @@ import { errorResponse } from '@/lib/api-utils';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const mockSetCreate = vi.mocked(setRepository.create);
-const mockSetListByUser = vi.mocked(setRepository.listByUser);
+const mockSetListByUser = vi.mocked(setRepository.listByUserWithCueCount);
 const mockCueCreate = vi.mocked(cueRepository.create);
 const mockCueFindBySetId = vi.mocked(cueRepository.findBySetId);
 
@@ -152,6 +153,7 @@ describe('GET /api/sets', () => {
         description: null,
         youtubePlaylistUrl: null,
         isPublic: true,
+        cueCount: 3,
         createdAt: now,
         updatedAt: now,
       },
@@ -163,5 +165,6 @@ describe('GET /api/sets', () => {
     expect(data.success).toBe(true);
     expect(data.data).toHaveLength(1);
     expect(data.data[0].name).toBe('Set One');
+    expect(data.data[0].cueCount).toBe(3);
   });
 });

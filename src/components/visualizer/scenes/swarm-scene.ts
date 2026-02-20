@@ -1,99 +1,119 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class SwarmScene {
-  private mesh: THREE.InstancedMesh;
+  private points: THREE.Points;
   private material: THREE.ShaderMaterial;
   private group: THREE.Group;
   private clock: THREE.Clock;
-  private instanceCount: number;
 
   private static VERTEX = `
-    varying vec3 vColor;
-    varying vec2 vUv;
-    varying vec3 vNormal;
-    varying vec3 vViewPosition;
+    attribute float aPhase;
+    attribute float aColorMix;
 
     uniform float uTime;
     uniform float uSpeed;
     uniform float uBass;
+    uniform float uHigh;
+    uniform float uTextureScale;
+    uniform bool uHasTexture;
+
+    varying float vPhase;
+    varying float vColorMix;
+    varying float vDist;
 
     void main() {
-      vUv = uv;
-      vColor = instanceColor;
+      vPhase = aPhase;
+      vColorMix = aColorMix;
 
-      // Extract base position from instance matrix translation column
-      vec3 basePos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+      vec3 basePos = position;
+      float dist = length(basePos);
+      vDist = dist;
 
-      // Per-instance phase derived from position
-      float phase = basePos.x * 1.7 + basePos.y * 2.3 + basePos.z * 0.9;
-
-      // Gentle floating drift via sine waves
+      // Gentle floating drift via sine waves with per-particle phase
       vec3 drift = vec3(
-        sin(uTime * uSpeed * 0.5 + phase) * 0.3,
-        cos(uTime * uSpeed * 0.3 + phase * 1.4) * 0.2,
-        sin(uTime * uSpeed * 0.4 + phase * 0.7) * 0.3
+        sin(uTime * uSpeed * 0.5 + aPhase) * 0.3,
+        cos(uTime * uSpeed * 0.3 + aPhase * 1.4) * 0.2,
+        sin(uTime * uSpeed * 0.4 + aPhase * 0.7) * 0.3
       );
 
       // Bass breathing — push outward from center
       vec3 breathDir = normalize(basePos + vec3(0.001));
       vec3 breath = breathDir * uBass * 0.8;
 
-      // Apply drift + breath to world position
-      vec4 worldPos = instanceMatrix * vec4(position, 1.0);
-      worldPos.xyz += drift + breath;
+      vec3 pos = basePos + drift + breath;
 
-      vec4 mvPosition = modelViewMatrix * worldPos;
-      vViewPosition = -mvPosition.xyz;
-      vNormal = normalMatrix * mat3(instanceMatrix) * normal;
+      vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
 
-      gl_Position = projectionMatrix * mvPosition;
+      // Size: closer to center = slightly bigger, highs boost size
+      float size = mix(1.5, 4.0, 1.0 - clamp(dist / 5.0, 0.0, 1.0));
+      size += uHigh * 2.0;
+      if (uHasTexture) size *= uTextureScale;
+
+      gl_PointSize = size * (300.0 / -mvPos.z);
+      gl_Position = projectionMatrix * mvPos;
     }
   `;
 
   private static FRAGMENT = `
-    uniform float uTime;
+    ${TEXTURE_UNIFORMS}
+    ${TEXTURE_SAMPLE_FN}
     uniform float uHigh;
+    uniform vec3 uPrimary;
+    uniform vec3 uSecondary;
     uniform vec3 uAccent;
-    uniform sampler2D uTexture;
-    uniform bool uHasTexture;
-    uniform float uTextureScale;
-    uniform float uTextureOpacity;
 
-    varying vec3 vColor;
-    varying vec2 vUv;
-    varying vec3 vNormal;
-    varying vec3 vViewPosition;
+    varying float vPhase;
+    varying float vColorMix;
+    varying float vDist;
 
     void main() {
-      // Fresnel rim glow
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 normal = normalize(vNormal);
-      float fresnel = 1.0 - abs(dot(normal, viewDir));
-      fresnel = pow(fresnel, 3.0);
+      vec2 center = gl_PointCoord - 0.5;
+      float d = length(center);
 
-      // Base color from instance color attribute
-      vec3 color = vColor;
+      float closeness = 1.0 - clamp(vDist / 5.0, 0.0, 1.0);
 
-      // Emissive intensity pulse from highs
+      float alpha;
+      vec4 texSample = vec4(1.0);
+      if (uHasTexture) {
+        texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        alpha = texSample.a * (0.5 + closeness * 0.5);
+        if (alpha < 0.01) discard;
+      } else {
+        if (d > 0.5) discard;
+        float glow = exp(-d * 4.0);
+        float softEdge = 1.0 - smoothstep(0.2, 0.5, d);
+        alpha = (softEdge * 0.7 + glow * 0.3) * (0.5 + closeness * 0.5);
+      }
+
+      // Color distributed by per-particle attribute
+      vec3 color;
+      if (vColorMix < 0.4) {
+        color = uPrimary;
+      } else if (vColorMix < 0.75) {
+        color = uSecondary;
+      } else {
+        color = uAccent;
+      }
+
+      // Emissive intensity from highs
       float emissive = 0.6 + uHigh * 1.5;
       color *= emissive;
 
-      // Add accent rim glow
-      color += uAccent * fresnel * (0.5 + uHigh * 0.5);
+      // Accent glow for particles near center
+      color = mix(color, uAccent, closeness * 0.3);
 
-      // Texture overlay via model UVs
-      if (uHasTexture) {
-        vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
-        vec4 texColor = texture2D(uTexture, texUv);
-        float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0)
-                       * step(0.0, texUv.y) * step(texUv.y, 1.0);
-        color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
-      }
+      if (uHasTexture) color *= texSample.rgb;
 
-      gl_FragColor = vec4(color, 0.85);
+      gl_FragColor = vec4(color, alpha);
     }
   `;
 
@@ -104,8 +124,31 @@ export class SwarmScene {
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    this.instanceCount = Math.floor(1500 * config.particleDensity + 500);
-    const geo = new THREE.IcosahedronGeometry(0.12, 1);
+    const particleCount = Math.floor(1500 * config.particleDensity + 500);
+    const positions = new Float32Array(particleCount * 3);
+    const phases = new Float32Array(particleCount);
+    const colorMixes = new Float32Array(particleCount);
+
+    for (let i = 0; i < particleCount; i++) {
+      // Uniform sphere volume distribution
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = Math.cbrt(Math.random()) * 5;
+
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+
+      // Per-particle phase for drift animation
+      phases[i] = Math.random() * Math.PI * 2;
+      // Color bucket: random value used in fragment shader to pick primary/secondary/accent
+      colorMixes[i] = Math.random();
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+    geometry.setAttribute('aColorMix', new THREE.BufferAttribute(colorMixes, 1));
 
     this.material = new THREE.ShaderMaterial({
       vertexShader: SwarmScene.VERTEX,
@@ -115,53 +158,19 @@ export class SwarmScene {
         uBass: { value: 0 },
         uHigh: { value: 0 },
         uSpeed: { value: config.animationSpeed },
+        uPrimary: { value: new THREE.Color(palette.primary) },
+        uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
-        uTextureScale: { value: config.textureScale ?? 1.0 },
-        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
+        ...createTextureUniforms(config),
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
 
-    this.mesh = new THREE.InstancedMesh(geo, this.material, this.instanceCount);
-
-    const dummy = new THREE.Object3D();
-    const primary = new THREE.Color(palette.primary);
-    const secondary = new THREE.Color(palette.secondary);
-    const accent = new THREE.Color(palette.accent);
-    const color = new THREE.Color();
-
-    for (let i = 0; i < this.instanceCount; i++) {
-      // Uniform sphere volume distribution
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = Math.cbrt(Math.random()) * 5;
-
-      dummy.position.set(
-        r * Math.sin(phi) * Math.cos(theta),
-        r * Math.sin(phi) * Math.sin(theta),
-        r * Math.cos(phi)
-      );
-      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      dummy.updateMatrix();
-      this.mesh.setMatrixAt(i, dummy.matrix);
-
-      // Distribute colors: primary 40%, secondary 35%, accent 25%
-      const roll = Math.random();
-      if (roll < 0.4) color.copy(primary);
-      else if (roll < 0.75) color.copy(secondary);
-      else color.copy(accent);
-      this.mesh.setColorAt(i, color);
-    }
-
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.instanceColor!.needsUpdate = true;
-
+    this.points = new THREE.Points(geometry, this.material);
     this.group = new THREE.Group();
-    this.group.add(this.mesh);
+    this.group.add(this.points);
     this.scene.add(this.group);
   }
 
@@ -180,30 +189,15 @@ export class SwarmScene {
 
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
+      this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
+      this.material.uniforms.uSecondary.value.set(config.colorPalette.secondary);
       this.material.uniforms.uAccent.value.set(config.colorPalette.accent);
-
-      const primary = new THREE.Color(config.colorPalette.primary);
-      const secondary = new THREE.Color(config.colorPalette.secondary);
-      const accent = new THREE.Color(config.colorPalette.accent);
-      const color = new THREE.Color();
-
-      for (let i = 0; i < this.instanceCount; i++) {
-        const roll = Math.random();
-        if (roll < 0.4) color.copy(primary);
-        else if (roll < 0.75) color.copy(secondary);
-        else color.copy(accent);
-        this.mesh.setColorAt(i, color);
-      }
-      this.mesh.instanceColor!.needsUpdate = true;
     }
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
-    }
-    if (config.textureOpacity !== undefined) {
-      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
     }
     this.config = { ...this.config, ...config };
   }
@@ -213,9 +207,13 @@ export class SwarmScene {
     this.material.uniforms.uHasTexture.value = texture !== null;
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
+  }
+
   dispose(): void {
     this.scene.remove(this.group);
-    this.mesh.geometry.dispose();
+    this.points.geometry.dispose();
     this.material.dispose();
   }
 }
@@ -223,11 +221,11 @@ export class SwarmScene {
 const METADATA: SceneRegistration = {
   id: 'swarm',
   name: 'Swarm',
-  description: 'Bioluminescent cloud of floating icosahedra',
+  description: 'Bioluminescent cloud of floating particles',
   category: 'cosmic',
   audioDescription:
     'Bass breathes the swarm outward, mids boost rotation, highs pulse emissive glow',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

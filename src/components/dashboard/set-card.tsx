@@ -27,30 +27,36 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [cues, setCues] = useState<CueResponse[] | null>(null);
   const [loadingCues, setLoadingCues] = useState(false);
+  const [cueError, setCueError] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  async function loadCues() {
+    if (cues) return;
+    setLoadingCues(true);
+    setCueError(false);
+    try {
+      const res = await fetch(`/api/sets/${set.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setCues(data.data.cues);
+      } else {
+        setCueError(true);
+      }
+    } catch {
+      setCueError(true);
+    } finally {
+      setLoadingCues(false);
+    }
+  }
 
   async function handleToggle() {
     if (expanded) {
       setExpanded(false);
       return;
     }
-
     setExpanded(true);
-
-    if (cues) return;
-    setLoadingCues(true);
-    try {
-      const res = await fetch(`/api/sets/${set.id}`);
-      const data = await res.json();
-      if (data.success) {
-        setCues(data.data.cues);
-      }
-    } catch {
-      // Silently fail, user can try again
-    } finally {
-      setLoadingCues(false);
-    }
+    await loadCues();
   }
 
   async function handleCopyLink() {
@@ -145,7 +151,7 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
       >
         <span className="flex items-center gap-1.5 text-[10px] font-medium tracking-wide uppercase">
           <Layers className="w-3 h-3" />
-          Cues{cues ? ` (${cues.length})` : ''}
+          Cues ({cues ? cues.length : set.cueCount})
         </span>
         <ChevronDown
           className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
@@ -159,6 +165,20 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
             <div className="px-4 py-4 flex items-center justify-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-white/10 animate-pulse" />
               <span className="text-[10px] text-white/20">Loading cues...</span>
+            </div>
+          ) : cueError ? (
+            <div className="px-4 py-4 text-center">
+              <p className="text-xs text-red-400/70">Failed to load cues</p>
+              <button
+                onClick={() => {
+                  setCues(null);
+                  setCueError(false);
+                  loadCues();
+                }}
+                className="mt-1 text-[10px] text-white/30 hover:text-white/50 underline"
+              >
+                Retry
+              </button>
             </div>
           ) : cues && cues.length > 0 ? (
             <CuesList setId={set.id} cues={cues} onCuesChange={setCues} />

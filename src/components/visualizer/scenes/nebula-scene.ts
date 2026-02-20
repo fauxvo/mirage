@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class NebulaScene {
   private particles: THREE.Points;
@@ -39,6 +45,8 @@ export class NebulaScene {
   `;
 
   private static FRAGMENT = `
+    ${TEXTURE_UNIFORMS}
+    ${TEXTURE_SAMPLE_FN}
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
@@ -46,10 +54,6 @@ export class NebulaScene {
     uniform float uMid;
     uniform float uHigh;
     uniform float uSpeed;
-    uniform sampler2D uTexture;
-    uniform bool uHasTexture;
-    uniform float uTextureScale;
-    uniform float uTextureOpacity;
     varying float vPhase;
     varying float vDist;
 
@@ -57,11 +61,10 @@ export class NebulaScene {
       float d = length(gl_PointCoord - 0.5);
 
       float alpha;
-      vec4 texColor = vec4(1.0);
+      vec4 texSample = vec4(1.0);
       if (uHasTexture) {
-        // Texture maps 1:1 onto each point; size is controlled in vertex shader
-        texColor = texture2D(uTexture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texColor.a * uTextureOpacity;
+        texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        alpha = texSample.a;
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
@@ -75,7 +78,7 @@ export class NebulaScene {
       float brightness = 0.8 + uHigh * 0.6;
       color *= brightness;
 
-      if (uHasTexture) color *= texColor.rgb;
+      if (uHasTexture) color *= texSample.rgb;
 
       gl_FragColor = vec4(color, alpha);
     }
@@ -121,10 +124,7 @@ export class NebulaScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
-        uTextureScale: { value: config.textureScale ?? 1.0 },
-        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
+        ...createTextureUniforms(config),
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -159,15 +159,16 @@ export class NebulaScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
-    if (config.textureOpacity !== undefined) {
-      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
-    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -183,7 +184,7 @@ const METADATA: SceneRegistration = {
   description: 'Volumetric cloud and nebula particles',
   category: 'organic',
   audioDescription: 'Bass expands the cloud, mids cycle colors, highs boost brightness',
-  features: ['textureScale', 'textureOpacity'],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',
