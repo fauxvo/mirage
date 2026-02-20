@@ -32,10 +32,8 @@ export const SCENE_CATEGORY_MAP: Record<string, string> = {
   terrain: 'immersive',
   starburst: 'immersive',
   'starburst-classic': 'immersive',
-  'starburst-flat': 'immersive',
   'starburst-soft': 'immersive',
   'starburst-sharp': 'immersive',
-  'starburst-spin': 'immersive',
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {

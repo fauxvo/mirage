@@ -20,6 +20,8 @@ export class VortexScene {
     uniform float uMid;
     uniform float uHigh;
     uniform float uAnimSpeed;
+    uniform float uTextureScale;
+    uniform bool uHasTexture;
     varying float vRadius;
     varying float vBrightness;
 
@@ -41,6 +43,8 @@ export class VortexScene {
 
       vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
       float size = (1.0 - r / 6.0) * 3.0 + 1.0;
+      // When texture is loaded, textureScale controls point size
+      if (uHasTexture) size *= uTextureScale;
       gl_PointSize = size * (200.0 / -mvPos.z);
       gl_Position = projectionMatrix * mvPos;
     }
@@ -52,6 +56,8 @@ export class VortexScene {
     uniform vec3 uAccent;
     uniform sampler2D uTexture;
     uniform bool uHasTexture;
+    uniform float uTextureScale;
+    uniform float uTextureOpacity;
     varying float vRadius;
     varying float vBrightness;
 
@@ -61,8 +67,9 @@ export class VortexScene {
       float alpha;
       vec4 texColor = vec4(1.0);
       if (uHasTexture) {
+        // Texture maps 1:1 onto each point; size is controlled in vertex shader
         texColor = texture2D(uTexture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texColor.a * 0.8;
+        alpha = texColor.a * uTextureOpacity;
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
@@ -123,6 +130,8 @@ export class VortexScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -167,6 +176,12 @@ export class VortexScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uAnimSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -191,6 +206,7 @@ const METADATA: SceneRegistration = {
   description: 'Spiral vortex pull with central glow sphere',
   category: 'immersive',
   audioDescription: 'Bass tightens the spiral, mids control rotation speed, highs glow particles',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

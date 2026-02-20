@@ -22,6 +22,8 @@ const FRAGMENT_SHADER = `
   uniform vec3 uAccent;
   uniform sampler2D uTexture;
   uniform bool uHasTexture;
+  uniform float uTextureScale;
+  uniform float uTextureOpacity;
   varying vec2 vUv;
 
   vec3 palette(float t, vec3 a, vec3 b) {
@@ -75,8 +77,11 @@ const FRAGMENT_SHADER = `
     }
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      // Scale texture UVs from center
+      vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
+      vec4 texColor = texture2D(uTexture, texUv);
+      float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
+      color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -110,6 +115,8 @@ export class FractalScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
     });
 
@@ -136,6 +143,12 @@ export class FractalScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -158,6 +171,7 @@ const METADATA: SceneRegistration = {
   category: 'geometric',
   audioDescription: 'Bass controls zoom level, mids drift parameters, highs cycle colors',
   params: [],
+  features: ['textureScale', 'textureOpacity'],
 };
 
 registerScene('fractal', (scene, config) => new FractalScene(scene, config), METADATA);

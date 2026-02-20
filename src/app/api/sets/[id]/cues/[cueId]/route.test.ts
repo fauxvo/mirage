@@ -60,6 +60,7 @@ const validConfig = {
   textureScale: 1,
   textureOpacity: 1,
   textureAnimation: 'none',
+  textureMotion: 'none',
   patternOffsetX: 0,
 };
 

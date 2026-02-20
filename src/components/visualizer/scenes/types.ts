@@ -20,7 +20,12 @@ export interface SceneParamDef {
 }
 
 /** Optional feature flags a scene can declare to surface extra controls. */
-export type SceneFeature = 'textureScale' | 'textureOpacity' | 'textureAnimation' | 'patternOffset';
+export type SceneFeature =
+  | 'textureScale'
+  | 'textureOpacity'
+  | 'textureAnimation'
+  | 'textureMotion'
+  | 'patternOffset';
 
 export interface SceneRegistration {
   id: string;

@@ -1,4 +1,4 @@
-import type { TextureAnimation } from '@/types/visualizer';
+import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
 
 /**
  * Compute the animated opacity value based on the selected animation mode.
@@ -37,5 +37,53 @@ export function computeAnimatedOpacity(
     case 'none':
     default:
       return 1.0;
+  }
+}
+
+export interface TextureMotionResult {
+  rotationZ: number;
+  offsetX: number;
+  offsetY: number;
+  extraScale: number;
+}
+
+/**
+ * Compute texture mesh transform based on the selected motion mode.
+ * Returns rotation, position offset, and scale adjustments to apply to the logo mesh.
+ */
+export function computeTextureMotion(
+  mode: TextureMotion,
+  time: number,
+  speed: number,
+  bass: number
+): TextureMotionResult {
+  const none: TextureMotionResult = { rotationZ: 0, offsetX: 0, offsetY: 0, extraScale: 1 };
+  switch (mode) {
+    case 'spin': {
+      // Continuous slow rotation
+      return { ...none, rotationZ: time * speed * 0.4 };
+    }
+    case 'bounce': {
+      // Vertical bounce with bass impact
+      const bounce = Math.abs(Math.sin(time * speed * 1.5));
+      const impact = 1 - bounce * 0.1; // slight squash at bottom
+      return { ...none, offsetY: bounce * 0.6 + bass * 0.2, extraScale: impact };
+    }
+    case 'float': {
+      // Gentle figure-8 drift
+      return {
+        ...none,
+        offsetX: Math.sin(time * speed * 0.4) * 0.4,
+        offsetY: Math.sin(time * speed * 0.6) * 0.25,
+      };
+    }
+    case 'swing': {
+      // Pendulum rock back and forth
+      const angle = Math.sin(time * speed * 0.8) * 0.3;
+      return { ...none, rotationZ: angle };
+    }
+    case 'none':
+    default:
+      return none;
   }
 }

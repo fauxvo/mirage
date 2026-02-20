@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import { computeAnimatedOpacity, computeTextureMotion } from './starburst-utils';
 
 /**
  * Starburst Classic Scene
@@ -58,27 +58,25 @@ const BURST_FRAGMENT = `
     float midBright = 1.0 + uMid * uReactivity * 0.4;
     float highSharp = 1.0 + uHigh * uReactivity * 0.3;
 
-    // Radial falloff — rays fade towards edges, pulse with bass
-    // Hollow center: rays start fading IN from the middle
-    float outerFade = 1.0 - smoothstep(0.15 * bassPulse, 0.55 * bassPulse, dist);
+    // Hollow center so texture is visible, but NO outer falloff — rays go to edges
     float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
 
-    // Combine rays with falloff
-    float rayIntensity = rays * falloff * highSharp * midBright;
-    rayIntensity = pow(rayIntensity, 1.5); // sharpen
+    // Combine: no outer fade means rays fill the entire screen
+    float rayIntensity = rays * innerFade * highSharp * midBright;
+    rayIntensity = pow(rayIntensity, 1.5);
 
-    // Color gradient: primary at center, secondary at mid, accent at tips
-    vec3 rayColor = mix(uPrimary, uSecondary, dist * 2.0);
+    // Color gradient: primary near centre, secondary at mid, accent at tips
+    vec3 rayColor = mix(uPrimary, uSecondary, clamp(dist * 1.5, 0.0, 1.0));
     rayColor = mix(rayColor, uAccent, rays * 0.3);
 
-    // Final composition — no additive center glow
+    // Composition: background + rays — background is ALWAYS the palette colour, never black
     vec3 color = uBackground;
-    color += rayColor * rayIntensity * 0.8;
+    color = mix(color, rayColor, rayIntensity * 0.75);
 
-    // Subtle vignette
-    float vignette = 1.0 - smoothstep(0.3, 0.75, dist);
-    color *= 0.6 + vignette * 0.4;
+    // Gentle distance-based colour enrichment so edges stay vibrant
+    vec3 edgeTint = mix(uSecondary, uAccent, sin(angle * 2.0 + uTime * uSpeed * 0.1) * 0.5 + 0.5);
+    float edgeBlend = smoothstep(0.2, 0.7, dist) * 0.3;
+    color = mix(color, edgeTint, edgeBlend * (1.0 - rayIntensity * 0.5));
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -235,11 +233,21 @@ export class StarburstClassicScene {
     const breathe = scale * (1.0 + bass * reactivity * 0.05);
     this.logoMesh.scale.setScalar(breathe);
 
-    // Horizontal offset — shift logo mesh to follow burst centre
+    // Pattern offset — shift logo mesh to follow burst centre
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0; // scale to world units
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion (spin, bounce, float, swing)
+    const motion = computeTextureMotion(
+      this.config.textureMotion ?? 'none',
+      time,
+      this.config.animationSpeed,
+      bass
+    );
+    this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+    this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+    this.logoMesh.rotation.z = motion.rotationZ;
+    if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -319,7 +327,13 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
 };
 
 registerScene(

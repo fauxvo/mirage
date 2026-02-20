@@ -3,6 +3,7 @@
 export type VisualizerScene = string;
 export type CameraMovement = 'static' | 'orbit' | 'drift' | 'pulse';
 export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
+export type TextureMotion = 'none' | 'spin' | 'bounce' | 'float' | 'swing';
 
 export interface VisualizerColorPalette {
   primary: string;
@@ -28,6 +29,7 @@ export interface VisualizerConfig {
   textureScale: number; // 0.2-3.0, scale of the centred texture (default 1.0)
   textureOpacity: number; // 0-1, opacity of the centred texture (default 1.0)
   textureAnimation: TextureAnimation; // animated opacity mode (default 'none')
+  textureMotion: TextureMotion; // texture movement mode (default 'none')
   patternOffsetX: number; // -1 to 1, horizontal offset of the pattern centre (starburst only, default 0)
   patternOffsetY: number; // -1 to 1, vertical offset of the pattern centre (starburst only, default 0)
 }

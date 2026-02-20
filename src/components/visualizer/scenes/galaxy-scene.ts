@@ -142,10 +142,29 @@ export class GalaxyScene {
       this.particles.geometry.attributes.color.needsUpdate = true;
       this.coreMaterial.color.set(config.colorPalette.accent);
     }
+    if (config.textureScale !== undefined) {
+      if (this.material.map) {
+        this.material.size = GalaxyScene.BASE_POINT_SIZE * config.textureScale;
+      }
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.opacity = config.textureOpacity;
+      this.material.transparent = true;
+    }
     this.config = { ...this.config, ...config };
   }
 
+  private static BASE_POINT_SIZE = 0.05;
+
   setTexture(texture: THREE.Texture | null): void {
+    if (texture) {
+      // For point sprites, textureScale controls particle size (not UV repeat)
+      this.material.size = GalaxyScene.BASE_POINT_SIZE * (this.config.textureScale ?? 1.0);
+      this.material.opacity = this.config.textureOpacity ?? 0.85;
+      this.material.transparent = true;
+    } else {
+      this.material.size = GalaxyScene.BASE_POINT_SIZE;
+    }
     this.material.map = texture;
     this.material.needsUpdate = true;
   }
@@ -166,6 +185,7 @@ const METADATA: SceneRegistration = {
   description: 'Spiral galaxy with dust lanes',
   category: 'cosmic',
   audioDescription: 'Bass spreads spiral arms, mids control rotation speed, highs brighten stars',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

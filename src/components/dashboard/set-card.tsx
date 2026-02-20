@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ChevronDown,
@@ -24,22 +24,14 @@ interface SetCardProps {
 }
 
 export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [cues, setCues] = useState<CueResponse[] | null>(null);
   const [loadingCues, setLoadingCues] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  async function handleToggle() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-
-    setExpanded(true);
-
+  async function fetchCues() {
     if (cues) return;
-
     setLoadingCues(true);
     try {
       const res = await fetch(`/api/sets/${set.id}`);
@@ -52,6 +44,15 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
     } finally {
       setLoadingCues(false);
     }
+  }
+
+  useEffect(() => {
+    fetchCues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleToggle() {
+    setExpanded((prev) => !prev);
   }
 
   async function handleCopyLink() {

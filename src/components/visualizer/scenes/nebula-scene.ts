@@ -15,6 +15,8 @@ export class NebulaScene {
     uniform float uTime;
     uniform float uBass;
     uniform float uSpeed;
+    uniform float uTextureScale;
+    uniform bool uHasTexture;
     varying float vPhase;
     varying float vDist;
 
@@ -28,7 +30,10 @@ export class NebulaScene {
 
       vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
       vDist = length(mvPos.xyz);
-      gl_PointSize = aSize * (200.0 / -mvPos.z);
+      float size = aSize;
+      // When texture is loaded, textureScale controls point size
+      if (uHasTexture) size *= uTextureScale;
+      gl_PointSize = size * (200.0 / -mvPos.z);
       gl_Position = projectionMatrix * mvPos;
     }
   `;
@@ -43,6 +48,8 @@ export class NebulaScene {
     uniform float uSpeed;
     uniform sampler2D uTexture;
     uniform bool uHasTexture;
+    uniform float uTextureScale;
+    uniform float uTextureOpacity;
     varying float vPhase;
     varying float vDist;
 
@@ -52,8 +59,9 @@ export class NebulaScene {
       float alpha;
       vec4 texColor = vec4(1.0);
       if (uHasTexture) {
+        // Texture maps 1:1 onto each point; size is controlled in vertex shader
         texColor = texture2D(uTexture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texColor.a * 0.6;
+        alpha = texColor.a * uTextureOpacity;
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
@@ -115,6 +123,8 @@ export class NebulaScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -146,6 +156,12 @@ export class NebulaScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -167,6 +183,7 @@ const METADATA: SceneRegistration = {
   description: 'Volumetric cloud and nebula particles',
   category: 'organic',
   audioDescription: 'Bass expands the cloud, mids cycle colors, highs boost brightness',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

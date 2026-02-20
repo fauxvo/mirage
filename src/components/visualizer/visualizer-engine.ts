@@ -82,7 +82,35 @@ export class VisualizerEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
+
+    // Reposition camera so flat-plane scenes still fill the viewport
+    this.positionCamera();
   };
+
+  // Scenes with a 12×12 plane that need the camera pulled in to fill widescreen
+  private static SMALL_PLANE_SCENES = new Set(['fractal', 'kaleidoscope', 'tunnel', 'metaballs']);
+
+  private positionCamera(): void {
+    const sceneType = this.config.scene;
+
+    if (VisualizerEngine.SMALL_PLANE_SCENES.has(sceneType)) {
+      // 12×12 plane at z=-2: move camera so the plane fills the viewport width
+      const planeSize = 12;
+      const planeZ = -2;
+      const fovRad = (this.camera.fov * Math.PI) / 180;
+      const aspect = this.camera.aspect;
+      // For landscape: fill width; for portrait: fill height
+      const distance = planeSize / (2 * Math.tan(fovRad / 2) * Math.max(aspect, 1));
+      this.camera.position.set(0, 0, planeZ + distance);
+    } else if (VisualizerEngine.FLAT_PLANE_SCENES.has(sceneType)) {
+      // Large-plane scenes (starbursts, 40×40) — centered head-on
+      this.camera.position.set(0, 0, 6);
+    } else {
+      // 3D scenes — elevated angle for depth
+      this.camera.position.set(0, 2, 6);
+    }
+    this.camera.lookAt(0, 0, 0);
+  }
 
   private loadCustomTexture(dataUrl: string): void {
     // Skip if same URL already loaded
@@ -127,6 +155,18 @@ export class VisualizerEngine {
     this.sceneHandler?.setTexture?.(null);
   }
 
+  // Flat-plane shader scenes render on a single face — camera must be centered head-on
+  private static FLAT_PLANE_SCENES = new Set([
+    'fractal',
+    'kaleidoscope',
+    'tunnel',
+    'metaballs',
+    'starburst',
+    'starburst-classic',
+    'starburst-soft',
+    'starburst-sharp',
+  ]);
+
   private loadScene(sceneType: string): void {
     // Dispose current scene handler
     if (this.sceneHandler) {
@@ -152,6 +192,8 @@ export class VisualizerEngine {
         }
       }
     }
+
+    this.positionCamera();
 
     this.sceneHandler = createScene(sceneType, this.scene, this.config);
 
@@ -201,12 +243,15 @@ export class VisualizerEngine {
     const speed = this.config.animationSpeed;
 
     switch (this.config.cameraMovement) {
-      case 'orbit':
+      case 'orbit': {
+        // Oscillate ±50° from front (like a lawn sprinkler)
         this.cameraAngle += 0.002 * speed;
-        this.camera.position.x = Math.sin(this.cameraAngle) * 6;
-        this.camera.position.z = Math.cos(this.cameraAngle) * 6;
+        const swing = Math.sin(this.cameraAngle) * ((50 * Math.PI) / 180);
+        this.camera.position.x = Math.sin(swing) * 6;
+        this.camera.position.z = Math.cos(swing) * 6;
         this.camera.lookAt(0, 0, 0);
         break;
+      }
       case 'drift':
         this.cameraAngle += 0.001 * speed;
         this.camera.position.x = Math.sin(this.cameraAngle * 0.7) * 2;

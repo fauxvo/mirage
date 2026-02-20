@@ -60,6 +60,7 @@ export class ParticleScene {
 
     this.material = new THREE.PointsMaterial({
       size: 0.05,
+      sizeAttenuation: true,
       transparent: true,
       opacity: 0.8,
       blending: THREE.AdditiveBlending,
@@ -142,9 +143,30 @@ export class ParticleScene {
       this.particles.geometry.attributes.color.needsUpdate = true;
       this.config = { ...this.config, ...config };
     }
+    if (config.textureScale !== undefined) {
+      this.config = { ...this.config, ...config };
+      if (this.material.map) {
+        this.material.size = ParticleScene.BASE_POINT_SIZE * config.textureScale;
+      }
+    }
+    if (config.textureOpacity !== undefined) {
+      this.config = { ...this.config, ...config };
+      this.material.opacity = config.textureOpacity;
+      this.material.transparent = true;
+    }
   }
 
+  private static BASE_POINT_SIZE = 0.05;
+
   setTexture(texture: THREE.Texture | null): void {
+    if (texture) {
+      // For point sprites, textureScale controls particle size (not UV repeat)
+      this.material.size = ParticleScene.BASE_POINT_SIZE * (this.config.textureScale ?? 1.0);
+      this.material.opacity = this.config.textureOpacity ?? 0.8;
+      this.material.transparent = true;
+    } else {
+      this.material.size = ParticleScene.BASE_POINT_SIZE;
+    }
     this.material.map = texture;
     this.material.needsUpdate = true;
   }
@@ -162,6 +184,7 @@ const METADATA: SceneRegistration = {
   description: 'Dynamic particle field with orbital rotation',
   category: 'cosmic',
   audioDescription: 'Bass pulses expansion, mids control orbit speed, highs boost brightness',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

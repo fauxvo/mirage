@@ -19,7 +19,11 @@ import {
   getSceneMetadata,
 } from '@/components/visualizer/scenes/scene-registry';
 import { buildDefaultConfig, COLOR_PRESETS } from '@/constants/visualizer-presets';
-import { SliderControl, TextureAnimationPicker } from '@/components/settings/slider-control';
+import {
+  SliderControl,
+  TextureAnimationPicker,
+  TextureMotionPicker,
+} from '@/components/settings/slider-control';
 import { CueManagementPanel } from '@/components/visualizer/cue-management-panel';
 import { SetSettingsPanel } from '@/components/visualizer/set-settings-panel';
 import type { CueSummary } from '@/components/visualizer/cue-switcher-bar';
@@ -445,62 +449,70 @@ export function VisualizerSettingsPanel({
               <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
                 Color Preset
               </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {COLOR_PRESETS.map((preset) => {
-                  const isActive =
-                    config.colorPalette.primary === preset.colors.primary &&
-                    config.colorPalette.secondary === preset.colors.secondary &&
-                    config.colorPalette.accent === preset.colors.accent &&
-                    config.colorPalette.background === preset.colors.background;
+              <div className="max-h-60 overflow-y-auto pr-0.5">
+                <div className="grid grid-cols-3 gap-1">
+                  {COLOR_PRESETS.map((preset) => {
+                    const isActive =
+                      config.colorPalette.primary === preset.colors.primary &&
+                      config.colorPalette.secondary === preset.colors.secondary &&
+                      config.colorPalette.accent === preset.colors.accent &&
+                      config.colorPalette.background === preset.colors.background;
 
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => {
-                        onQuickChange({ colorPalette: preset.colors });
-                        setShowCustomColors(false);
-                      }}
-                      className={cn(
-                        'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all',
-                        isActive && !showCustomColors
-                          ? 'bg-white/20 border border-white/30'
-                          : 'bg-white/5 border border-transparent hover:bg-white/10'
-                      )}
-                    >
-                      <div className="flex gap-0.5 shrink-0">
-                        {Object.values(preset.colors).map((color, i) => (
-                          <div
-                            key={i}
-                            className="w-3 h-3 rounded-full border border-white/10"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-white/60 truncate">{preset.name}</span>
-                    </button>
-                  );
-                })}
-                {/* Custom toggle */}
-                <button
-                  onClick={() => setShowCustomColors(!showCustomColors)}
-                  className={cn(
-                    'flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all',
-                    showCustomColors
-                      ? 'bg-white/20 border border-white/30'
-                      : 'bg-white/5 border border-transparent hover:bg-white/10'
-                  )}
-                >
-                  <div className="flex gap-0.5 shrink-0">
-                    {Object.values(config.colorPalette).map((color, i) => (
-                      <div
-                        key={i}
-                        className="w-3 h-3 rounded-full border border-white/10"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[10px] text-white/60 truncate">Custom</span>
-                </button>
+                    return (
+                      <button
+                        key={preset.id}
+                        title={preset.name}
+                        onClick={() => {
+                          onQuickChange({ colorPalette: preset.colors });
+                          setShowCustomColors(false);
+                        }}
+                        className={cn(
+                          'flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md transition-all',
+                          isActive && !showCustomColors
+                            ? 'bg-white/20 ring-1 ring-white/30'
+                            : 'bg-white/5 hover:bg-white/10'
+                        )}
+                      >
+                        <div className="flex gap-0.5">
+                          {Object.values(preset.colors).map((color, i) => (
+                            <div
+                              key={i}
+                              className="w-3 h-3 rounded-full border border-white/10"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[9px] text-white/50 truncate w-full text-center leading-tight">
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {/* Custom toggle */}
+                  <button
+                    title="Custom colors"
+                    onClick={() => setShowCustomColors(!showCustomColors)}
+                    className={cn(
+                      'flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md transition-all',
+                      showCustomColors
+                        ? 'bg-white/20 ring-1 ring-white/30'
+                        : 'bg-white/5 hover:bg-white/10'
+                    )}
+                  >
+                    <div className="flex gap-0.5">
+                      {Object.values(config.colorPalette).map((color, i) => (
+                        <div
+                          key={i}
+                          className="w-3 h-3 rounded-full border border-white/10"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[9px] text-white/50 truncate w-full text-center leading-tight">
+                      Custom
+                    </span>
+                  </button>
+                </div>
               </div>
               {/* Custom color pickers */}
               {showCustomColors && (
@@ -584,6 +596,55 @@ export function VisualizerSettingsPanel({
                     )}
                   />
                 </button>
+              </div>
+            </section>
+
+            {/* Camera Movement */}
+            <section>
+              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                Camera Movement
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    {
+                      value: 'static',
+                      label: 'Static',
+                      desc: 'Fixed position, faces scene head-on',
+                    },
+                    {
+                      value: 'orbit',
+                      label: 'Orbit',
+                      desc: 'Circles around the scene (full 360°)',
+                    },
+                    {
+                      value: 'drift',
+                      label: 'Drift',
+                      desc: 'Gentle sway side-to-side with subtle bob',
+                    },
+                    {
+                      value: 'pulse',
+                      label: 'Pulse',
+                      desc: 'Zooms in on bass hits, pulls back when quiet',
+                    },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.value}
+                    onClick={() => onQuickChange({ cameraMovement: mode.value })}
+                    className={cn(
+                      'px-2.5 py-2 rounded-lg text-left transition-all',
+                      config.cameraMovement === mode.value
+                        ? 'bg-white/20 border border-white/30'
+                        : 'bg-white/5 border border-transparent hover:bg-white/10'
+                    )}
+                  >
+                    <span className="block text-xs font-medium text-white/80">{mode.label}</span>
+                    <span className="block text-[9px] text-white/35 leading-tight mt-0.5">
+                      {mode.desc}
+                    </span>
+                  </button>
+                ))}
               </div>
             </section>
 
@@ -810,6 +871,12 @@ export function VisualizerSettingsPanel({
                   <TextureAnimationPicker
                     value={config.textureAnimation ?? 'none'}
                     onChange={(v) => onQuickChange({ textureAnimation: v })}
+                  />
+                )}
+                {sceneFeatures.has('textureMotion') && (
+                  <TextureMotionPicker
+                    value={config.textureMotion ?? 'none'}
+                    onChange={(v) => onQuickChange({ textureMotion: v })}
                   />
                 )}
                 {sceneFeatures.has('patternOffset') && (

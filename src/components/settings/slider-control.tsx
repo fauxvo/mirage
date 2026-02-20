@@ -34,6 +34,7 @@ export function SliderControl({ label, value, min, max, step, onChange }: Slider
 }
 
 export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
+export type TextureMotion = 'none' | 'spin' | 'bounce' | 'float' | 'swing';
 
 const TEXTURE_ANIMATIONS: { value: TextureAnimation; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Static opacity' },
@@ -74,6 +75,50 @@ export function TextureAnimationPicker({
       </div>
       <p className="mt-1 text-white/30 text-[10px]">
         {TEXTURE_ANIMATIONS.find((a) => a.value === value)?.description}
+      </p>
+    </section>
+  );
+}
+
+const TEXTURE_MOTIONS: { value: TextureMotion; label: string; description: string }[] = [
+  { value: 'none', label: 'None', description: 'No movement' },
+  { value: 'spin', label: 'Spin', description: 'Continuous rotation' },
+  { value: 'bounce', label: 'Bounce', description: 'Vertical bounce with squash' },
+  { value: 'float', label: 'Float', description: 'Gentle figure-8 drift' },
+  { value: 'swing', label: 'Swing', description: 'Pendulum rock back and forth' },
+];
+
+export function TextureMotionPicker({
+  value,
+  onChange,
+}: {
+  value: TextureMotion;
+  onChange: (v: TextureMotion) => void;
+}) {
+  return (
+    <section>
+      <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+        Texture Motion
+      </label>
+      <div className="flex flex-wrap gap-1">
+        {TEXTURE_MOTIONS.map((m) => (
+          <button
+            key={m.value}
+            onClick={() => onChange(m.value)}
+            title={m.description}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all',
+              value === m.value
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-transparent'
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-white/30 text-[10px]">
+        {TEXTURE_MOTIONS.find((m) => m.value === value)?.description}
       </p>
     </section>
   );

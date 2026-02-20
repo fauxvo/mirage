@@ -16,6 +16,8 @@ export class StarfieldScene {
     uniform float uBass;
     uniform float uHigh;
     uniform float uSpeed;
+    uniform float uTextureScale;
+    uniform bool uHasTexture;
     varying float vVelocity;
     varying float vZ;
 
@@ -33,6 +35,8 @@ export class StarfieldScene {
       float size = mix(0.5, 4.0, 1.0 - (pos.z + 20.0) / 40.0);
       // High frequencies extend streaks
       size += uHigh * 2.0;
+      // When texture is loaded, textureScale controls point size
+      if (uHasTexture) size *= uTextureScale;
       gl_PointSize = size * (300.0 / -mvPos.z);
       gl_Position = projectionMatrix * mvPos;
     }
@@ -45,6 +49,8 @@ export class StarfieldScene {
     uniform float uHigh;
     uniform sampler2D uTexture;
     uniform bool uHasTexture;
+    uniform float uTextureScale;
+    uniform float uTextureOpacity;
     varying float vVelocity;
     varying float vZ;
 
@@ -57,8 +63,9 @@ export class StarfieldScene {
       float alpha;
       vec4 texColor = vec4(1.0);
       if (uHasTexture) {
+        // Texture maps 1:1 onto each point; size is controlled in vertex shader
         texColor = texture2D(uTexture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texColor.a * (0.6 + closeness * 0.4);
+        alpha = texColor.a * uTextureOpacity * (0.6 + closeness * 0.4);
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
@@ -113,6 +120,8 @@ export class StarfieldScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -140,6 +149,12 @@ export class StarfieldScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -161,6 +176,7 @@ const METADATA: SceneRegistration = {
   description: 'Warp-speed star tunnel fly-through',
   category: 'cosmic',
   audioDescription: 'Bass boosts speed, mids increase star density, highs extend streak length',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

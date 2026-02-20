@@ -32,6 +32,8 @@ export class MatrixScene {
     uniform vec3 uAccent;
     uniform sampler2D uTexture;
     uniform bool uHasTexture;
+    uniform float uTextureScale;
+    uniform float uTextureOpacity;
     varying vec2 vUv;
     varying float vInstanceY;
 
@@ -60,8 +62,10 @@ export class MatrixScene {
       color *= max(fadeFromCenter, 0.1);
 
       if (uHasTexture) {
-        vec4 texColor = texture2D(uTexture, vUv);
-        color = mix(color, texColor.rgb, texColor.a * 0.5);
+        vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
+        vec4 texColor = texture2D(uTexture, texUv);
+        float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
+        color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
       }
 
       float alpha = glyph * 0.9;
@@ -92,6 +96,8 @@ export class MatrixScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -134,6 +140,12 @@ export class MatrixScene {
     if (config.animationSpeed !== undefined) {
       this.columnMaterial.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.columnMaterial.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.columnMaterial.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -155,6 +167,7 @@ const METADATA: SceneRegistration = {
   description: 'Falling code rain with cascading glyphs',
   category: 'immersive',
   audioDescription: 'Bass controls fall speed, mids adjust glyph density, highs cascade brightness',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'particleDensity',

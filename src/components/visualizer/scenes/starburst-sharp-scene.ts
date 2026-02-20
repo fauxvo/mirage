@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import { computeAnimatedOpacity, computeTextureMotion } from './starburst-utils';
 
 /**
  * Starburst Sharp Scene
@@ -220,9 +220,19 @@ export class StarburstSharpScene {
     this.logoMesh.scale.setScalar(breathe);
 
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0;
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion (spin, bounce, float, swing)
+    const motion = computeTextureMotion(
+      this.config.textureMotion ?? 'none',
+      time,
+      this.config.animationSpeed,
+      bass
+    );
+    this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+    this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+    this.logoMesh.rotation.z = motion.rotationZ;
+    if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -301,7 +311,13 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass extends ray reach, highs sharpen band edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
 };
 
 registerScene(

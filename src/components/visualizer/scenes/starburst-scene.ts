@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import { computeAnimatedOpacity, computeTextureMotion } from './starburst-utils';
 
 /**
  * Starburst Scene (3D Sphere)
@@ -250,11 +250,21 @@ export class StarburstScene {
     const breathe = scale * (1.0 + bass * reactivity * 0.05);
     this.logoMesh.scale.setScalar(breathe);
 
-    // Horizontal offset — shift logo mesh to follow burst centre
+    // Pattern offset — shift logo mesh to follow burst centre
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0; // scale to world units
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion (spin, bounce, float, swing)
+    const motion = computeTextureMotion(
+      this.config.textureMotion ?? 'none',
+      time,
+      this.config.animationSpeed,
+      bass
+    );
+    this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+    this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+    this.logoMesh.rotation.z = motion.rotationZ;
+    if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -334,7 +344,13 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
 };
 
 registerScene('starburst', (scene, config) => new StarburstScene(scene, config), METADATA);

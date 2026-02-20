@@ -85,6 +85,8 @@ const FRAGMENT_SHADER = `
   uniform float uHigh;
   uniform sampler2D uTexture;
   uniform bool uHasTexture;
+  uniform float uTextureScale;
+  uniform float uTextureOpacity;
   varying vec3 vNormal;
   varying vec3 vPosition;
   varying float vDisplacement;
@@ -104,8 +106,10 @@ const FRAGMENT_SHADER = `
 
     if (uHasTexture) {
       vec2 texUv = vec2(atan(vNormal.z, vNormal.x) / 6.28318 + 0.5, asin(vNormal.y) / 3.14159 + 0.5);
+      texUv = (texUv - 0.5) / uTextureScale + 0.5;
       vec4 texColor = texture2D(uTexture, texUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
+      color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -139,6 +143,8 @@ export class OrbScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
     });
 
@@ -172,6 +178,12 @@ export class OrbScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -189,6 +201,7 @@ const METADATA: SceneRegistration = {
   category: 'abstract',
   audioDescription:
     'Bass drives spike amplitude, mids control noise frequency, highs intensify fresnel glow',
+  features: ['textureScale', 'textureOpacity'],
   params: [],
 };
 

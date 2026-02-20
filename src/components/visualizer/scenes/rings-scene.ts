@@ -93,12 +93,42 @@ export class RingsScene {
         this.ringMaterials[i].color.lerpColors(primary, i % 3 === 0 ? accent : secondary, t);
       }
     }
+    if (config.textureScale !== undefined) {
+      for (const mat of this.ringMaterials) {
+        const texture = mat.map;
+        if (texture) {
+          const scale = config.textureScale;
+          texture.repeat.set(1 / scale, 1 / scale);
+          texture.offset.set((1 - 1 / scale) / 2, (1 - 1 / scale) / 2);
+          texture.needsUpdate = true;
+        }
+      }
+    }
+    if (config.textureOpacity !== undefined) {
+      for (const mat of this.ringMaterials) {
+        if (mat.map) {
+          mat.opacity = config.textureOpacity;
+        }
+      }
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
+    if (texture) {
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      const scale = this.config.textureScale ?? 1.0;
+      texture.repeat.set(1 / scale, 1 / scale);
+      texture.offset.set((1 - 1 / scale) / 2, (1 - 1 / scale) / 2);
+      texture.needsUpdate = true;
+    }
+    const opacity = texture ? (this.config.textureOpacity ?? 0.7) : undefined;
     for (const mat of this.ringMaterials) {
       mat.map = texture;
+      if (opacity !== undefined) {
+        mat.opacity = opacity;
+      }
       mat.needsUpdate = true;
     }
   }
@@ -120,6 +150,7 @@ const METADATA: SceneRegistration = {
   description: 'Concentric ring system with varied tilts',
   category: 'geometric',
   audioDescription: 'Bass pulsates ring size, mids control rotation speeds, highs intensify glow',
+  features: ['textureScale', 'textureOpacity'],
   params: [],
 };
 

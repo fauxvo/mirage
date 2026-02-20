@@ -23,6 +23,8 @@ const FRAGMENT_SHADER = `
   uniform vec3 uAccent;
   uniform sampler2D uTexture;
   uniform bool uHasTexture;
+  uniform float uTextureScale;
+  uniform float uTextureOpacity;
   varying vec2 vUv;
 
   #define PI 3.14159265359
@@ -82,8 +84,10 @@ const FRAGMENT_SHADER = `
     color *= vignette;
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec2 texUv = (vUv - 0.5) / uTextureScale + 0.5;
+      vec4 texColor = texture2D(uTexture, texUv);
+      float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0) * step(0.0, texUv.y) * step(texUv.y, 1.0);
+      color = mix(color, texColor.rgb, texColor.a * uTextureOpacity * inBounds);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -118,6 +122,8 @@ export class KaleidoscopeScene {
         uAccent: { value: new THREE.Color(palette.accent) },
         uTexture: { value: null },
         uHasTexture: { value: false },
+        uTextureScale: { value: config.textureScale ?? 1.0 },
+        uTextureOpacity: { value: config.textureOpacity ?? 1.0 },
       },
     });
 
@@ -147,6 +153,12 @@ export class KaleidoscopeScene {
     if (config.symmetry !== undefined) {
       this.material.uniforms.uSymmetry.value = config.symmetry;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.textureOpacity !== undefined) {
+      this.material.uniforms.uTextureOpacity.value = config.textureOpacity;
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -168,6 +180,7 @@ const METADATA: SceneRegistration = {
   description: 'Mirrored geometric patterns with symmetry folds',
   category: 'geometric',
   audioDescription: 'Bass zooms pattern, mids rotate the view, highs split colors',
+  features: ['textureScale', 'textureOpacity'],
   params: [
     {
       key: 'symmetry',
