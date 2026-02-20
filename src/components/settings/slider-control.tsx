@@ -33,8 +33,7 @@ export function SliderControl({ label, value, min, max, step, onChange }: Slider
   );
 }
 
-export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
-export type TextureMotion = 'none' | 'fixed' | 'spin' | 'bounce' | 'float' | 'swing';
+import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
 
 const TEXTURE_ANIMATIONS: { value: TextureAnimation; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Static opacity' },

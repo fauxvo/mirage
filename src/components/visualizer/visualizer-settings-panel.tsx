@@ -622,7 +622,7 @@ export function VisualizerSettingsPanel({
                     {
                       value: 'orbit',
                       label: 'Orbit',
-                      desc: 'Circles around the scene (full 360°)',
+                      desc: 'Oscillates side-to-side around the scene',
                     },
                     {
                       value: 'drift',
@@ -655,15 +655,29 @@ export function VisualizerSettingsPanel({
               </div>
             </section>
 
-            {/* Bloom Intensity */}
-            <SliderControl
-              label="Bloom Intensity"
-              value={config.bloomIntensity}
-              min={0}
-              max={3}
-              step={0.1}
-              onChange={(v) => onQuickChange({ bloomIntensity: v })}
-            />
+            {/* Bloom Intensity — quadratic curve so most slider travel covers the subtle range */}
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                  Bloom Intensity
+                </label>
+                <span className="text-white/40 text-xs font-mono">
+                  {config.bloomIntensity.toFixed(1)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.005}
+                value={Math.sqrt(config.bloomIntensity / 3)}
+                onChange={(e) => {
+                  const t = parseFloat(e.target.value);
+                  onQuickChange({ bloomIntensity: Math.round(t * t * 3 * 20) / 20 });
+                }}
+                className="w-full h-1.5 appearance-none bg-white/10 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
+              />
+            </section>
 
             {/* Audio Reactivity - only meaningful when audio input is on */}
             {audioInputEnabled && (

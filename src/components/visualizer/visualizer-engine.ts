@@ -87,7 +87,19 @@ export class VisualizerEngine {
     this.positionCamera();
   };
 
-  // Scenes with a 12×12 plane that need the camera pulled in to fill widescreen
+  // Scenes that need the camera centered head-on (flat-plane shaders + sphere starbursts)
+  private static CENTERED_CAMERA_SCENES = new Set([
+    'fractal',
+    'kaleidoscope',
+    'tunnel',
+    'metaballs',
+    'starburst',
+    'starburst-classic',
+    'starburst-soft',
+    'starburst-sharp',
+  ]);
+
+  // Subset of centered scenes with a 12×12 plane that need the camera pulled in
   private static SMALL_PLANE_SCENES = new Set(['fractal', 'kaleidoscope', 'tunnel', 'metaballs']);
 
   private positionCamera(): void {
@@ -102,8 +114,8 @@ export class VisualizerEngine {
       // For landscape: fill width; for portrait: fill height
       const distance = planeSize / (2 * Math.tan(fovRad / 2) * Math.max(aspect, 1));
       this.camera.position.set(0, 0, planeZ + distance);
-    } else if (VisualizerEngine.FLAT_PLANE_SCENES.has(sceneType)) {
-      // Large-plane scenes (starbursts, 40×40) — centered head-on
+    } else if (VisualizerEngine.CENTERED_CAMERA_SCENES.has(sceneType)) {
+      // Sphere starbursts — centered head-on
       this.camera.position.set(0, 0, 6);
     } else {
       // 3D scenes — elevated angle for depth
@@ -130,8 +142,8 @@ export class VisualizerEngine {
       dataUrl,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
         // Apply pattern offset from config
         texture.offset.x = this.config.patternOffsetX ?? 0;
         texture.offset.y = this.config.patternOffsetY ?? 0;
@@ -154,18 +166,6 @@ export class VisualizerEngine {
     this.customTextureUrl = null;
     this.sceneHandler?.setTexture?.(null);
   }
-
-  // Scenes that need a centred head-on camera (flat-plane shaders + sphere starbursts with logo)
-  private static FLAT_PLANE_SCENES = new Set([
-    'fractal',
-    'kaleidoscope',
-    'tunnel',
-    'metaballs',
-    'starburst',
-    'starburst-classic',
-    'starburst-soft',
-    'starburst-sharp',
-  ]);
 
   private loadScene(sceneType: string): void {
     // Dispose current scene handler

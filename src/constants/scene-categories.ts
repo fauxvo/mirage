@@ -17,16 +17,18 @@ export const SCENE_CATEGORY_MAP: Record<string, string> = {
   starfield: 'cosmic',
   nebula: 'cosmic',
   vortex: 'cosmic',
+  swarm: 'cosmic',
   // Geometric
-  geometric: 'geometric',
   rings: 'geometric',
   orb: 'geometric',
   kaleidoscope: 'geometric',
   voronoi: 'geometric',
+  grid: 'geometric',
   // Abstract
   fractal: 'abstract',
   matrix: 'abstract',
   waveform: 'abstract',
+  lattice: 'abstract',
   // Immersive
   tunnel: 'immersive',
   terrain: 'immersive',

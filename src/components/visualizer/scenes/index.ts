@@ -3,7 +3,9 @@
 import './aurora-scene';
 import './fractal-scene';
 import './galaxy-scene';
+import './grid-scene';
 import './kaleidoscope-scene';
+import './lattice-scene';
 import './lava-scene';
 import './matrix-scene';
 import './metaballs-scene';
@@ -17,6 +19,7 @@ import './starburst-scene';
 import './starburst-sharp-scene';
 import './starburst-soft-scene';
 import './starfield-scene';
+import './swarm-scene';
 import './terrain-scene';
 import './tunnel-scene';
 import './voronoi-scene';

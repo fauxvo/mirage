@@ -297,7 +297,8 @@ export class StarburstClassicScene {
     if (
       config.textureScale !== undefined ||
       config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined
+      config.textureAnimation !== undefined ||
+      config.textureMotion !== undefined
     ) {
       this.config = { ...this.config, ...config };
     }
