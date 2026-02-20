@@ -127,10 +127,12 @@ export class RingsScene {
   }
 
   setTextureTransform(transform: TextureTransform): void {
+    const tc = transform.tintColor;
     for (const mat of this.ringMaterials) {
       mat.opacity = transform.opacity;
       mat.transparent = true;
       if (mat.map) {
+        mat.color.setRGB(tc.r, tc.g, tc.b);
         mat.map.rotation = transform.rotation;
         mat.map.center.set(0.5, 0.5);
         mat.map.offset.set(transform.offsetX, transform.offsetY);

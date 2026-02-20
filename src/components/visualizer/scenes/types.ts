@@ -13,14 +13,18 @@ export interface SceneUserData {
 export interface TextureTransform {
   /** Effective opacity (base * animation multiplier). */
   opacity: number;
-  /** UV-space rotation in radians. */
+  /** UV-space Z rotation in radians. */
   rotation: number;
+  /** Y-axis mesh rotation in radians (for 'rotate' motion). */
+  rotationY: number;
   /** UV-space X offset. */
   offsetX: number;
   /** UV-space Y offset. */
   offsetY: number;
   /** Extra scale multiplier from motion (e.g. bounce squash). 1 = no change. */
   scale: number;
+  /** Tint color in 0-1 range. {1,1,1} = no tint. */
+  tintColor: { r: number; g: number; b: number };
 }
 
 export interface SceneHandler {

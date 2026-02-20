@@ -2,7 +2,12 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, SceneUserData } from './types';
-import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
+import {
+  computeAnimatedOpacity,
+  computeTextureMotion,
+  applyFixedMotion,
+  applyTintToUniform,
+} from './starburst-utils';
 
 /**
  * Starburst Scene (3D Sphere)
@@ -16,13 +21,12 @@ import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from '
 // --- Burst background: sphere rendered from inside (BackSide) ---
 
 const BURST_VERTEX = `
-  varying vec3 vDir;
+  varying vec3 vWorldDir;
   void main() {
-    // Compute direction in view space so the pattern is always centered on
-    // the camera's forward direction, regardless of camera position/orbit.
-    vec4 viewPos = modelViewMatrix * vec4(position, 1.0);
-    vDir = viewPos.xyz;
-    gl_Position = projectionMatrix * viewPos;
+    // World-space direction: pattern center is fixed in world space so it
+    // slides on-screen when the camera orbits (unlike view-space locking).
+    vWorldDir = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
@@ -40,14 +44,10 @@ const BURST_FRAGMENT = `
   uniform float uRayCount;
   uniform float uOffsetX;
   uniform float uOffsetY;
-  varying vec3 vDir;
+  varying vec3 vWorldDir;
 
   void main() {
-    // View-space direction: in view space the camera looks along -Z,
-    // so atan(x, -z) gives 0 at screen centre. Scale 3.0 maps the
-    // 60° FOV half-angle (~0.524 rad) to ±0.5, matching the flat
-    // version's UV range so the ray pattern fills the visible screen.
-    vec3 dir = normalize(vDir);
+    vec3 dir = normalize(vWorldDir);
     float lon = atan(dir.x, -dir.z);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
 
@@ -110,21 +110,24 @@ const LOGO_FRAGMENT = `
   uniform float uSpeed;
   uniform vec3 uPrimary;
   uniform vec3 uAccent;
+  uniform vec3 uTintColor;
   varying vec2 vUv;
 
   void main() {
     if (uHasTexture) {
-      vec4 tex = texture2D(uTexture, vUv);
+      // Mirror UVs on the back face so rotate motion shows a flipped image
+      vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+      vec4 tex = texture2D(uTexture, uv);
 
       // Subtle glow halo around the image
-      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
       float halo = smoothstep(0.0, 0.15, edgeDist);
 
       // Audio breathing: gentle scale pulse baked into alpha
       float breathe = 1.0 + uBass * uReactivity * 0.08;
       float shimmer = 1.0 + uHigh * uReactivity * 0.15;
 
-      tex.rgb *= breathe * shimmer;
+      tex.rgb *= uTintColor * breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
       discard;
@@ -194,9 +197,11 @@ export class StarburstScene {
         uSpeed: { value: config.animationSpeed },
         uPrimary: { value: new THREE.Color(palette.primary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        uTintColor: { value: new THREE.Color(1, 1, 1) },
       },
       transparent: true,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
     this.logoMesh = new THREE.Mesh(logoGeo, this.logoMaterial);
@@ -240,8 +245,8 @@ export class StarburstScene {
       applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
     } else {
       this.logoMesh.rotation.x = 0;
-      this.logoMesh.rotation.y = 0;
       const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.rotation.y = motion.rotationY;
       this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
       this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
       this.logoMesh.rotation.z = motion.rotationZ;
@@ -269,6 +274,8 @@ export class StarburstScene {
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
+    this.config = { ...this.config, ...config };
+
     if (config.colorPalette) {
       this.burstMaterial.uniforms.uPrimary.value.set(config.colorPalette.primary);
       this.burstMaterial.uniforms.uSecondary.value.set(config.colorPalette.secondary);
@@ -282,17 +289,8 @@ export class StarburstScene {
       this.logoMaterial.uniforms.uSpeed.value = config.animationSpeed;
     }
     if (config.audioReactivity !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uReactivity.value = config.audioReactivity;
       this.logoMaterial.uniforms.uReactivity.value = config.audioReactivity;
-    }
-    if (
-      config.textureScale !== undefined ||
-      config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined ||
-      config.textureMotion !== undefined
-    ) {
-      this.config = { ...this.config, ...config };
     }
     if (
       config.textureOpacity !== undefined &&
@@ -301,12 +299,17 @@ export class StarburstScene {
       this.logoMaterial.uniforms.uOpacity.value = config.textureOpacity;
     }
     if (config.patternOffsetX !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetX.value = config.patternOffsetX;
     }
     if (config.patternOffsetY !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetY.value = config.patternOffsetY;
+    }
+    if (config.textureTint !== undefined || config.colorPalette) {
+      applyTintToUniform(
+        this.logoMaterial.uniforms.uTintColor,
+        this.config.textureTint,
+        this.config.colorPalette
+      );
     }
   }
 

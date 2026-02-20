@@ -46,3 +46,6 @@ coverage/
 
 # playwright mcp
 .playwright-mcp/
+
+# reference screenshots
+*-hero.png

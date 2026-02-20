@@ -217,9 +217,12 @@ export class GalaxyScene {
   setTextureTransform(transform: TextureTransform): void {
     if (this.texturePlane && this.textureMaterial) {
       this.textureMaterial.opacity = transform.opacity;
+      const tc = transform.tintColor;
+      this.textureMaterial.color.setRGB(tc.r, tc.g, tc.b);
       // Skip position/rotation when 'fixed' mode — handled by applyFixedMotion in update()
       if ((this.config.textureMotion ?? 'none') !== 'fixed') {
         this.texturePlane.rotation.z = transform.rotation;
+        this.texturePlane.rotation.y = transform.rotationY;
         this.texturePlane.position.x = transform.offsetX * 2;
         // Z not Y — the galaxy plane is horizontal so Z maps to visual "up/down"
         this.texturePlane.position.z = transform.offsetY * 2;

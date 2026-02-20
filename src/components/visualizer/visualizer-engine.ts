@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import type { VisualizerConfig } from '@/types/visualizer';
+import type { VisualizerConfig, TextureTint } from '@/types/visualizer';
 import { createScene, type SceneHandler } from './scenes';
 import { getSceneMetadata } from './scenes/scene-registry';
 import type { CameraHint, SceneUserData } from './scenes/types';
@@ -26,6 +26,17 @@ export class VisualizerEngine {
   private customTextureUrl: string | null = null;
   private clock = new THREE.Clock();
   private densityReloadTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Smoothed audio values — exponential moving average kills single-frame spikes
+  private smoothBass = 0;
+  private smoothMid = 0;
+  private smoothHigh = 0;
+  // Cached tint color — avoids per-frame THREE.Color + object allocation
+  private _tintScratch = new THREE.Color();
+  private _tintResult = { r: 1, g: 1, b: 1 };
+  private _tintDirty = true;
+  // Separate timestamp for frame-rate independent audio smoothing
+  // (can't use this.clock.getDelta() — it conflicts with getElapsedTime())
+  private _lastFrameTime = 0;
 
   constructor(canvas: HTMLCanvasElement, config: VisualizerConfig) {
     this.config = config;
@@ -226,29 +237,73 @@ export class VisualizerEngine {
     this.audioEnabled = enabled;
   }
 
+  private resolveTintColor(): { r: number; g: number; b: number } {
+    if (!this._tintDirty) return this._tintResult;
+    this._tintDirty = false;
+    const tint = (this.config.textureTint as TextureTint) ?? 'none';
+    if (tint === 'none') {
+      this._tintResult.r = this._tintResult.g = this._tintResult.b = 1;
+    } else {
+      const palette = this.config.colorPalette;
+      const hex =
+        tint === 'primary'
+          ? palette.primary
+          : tint === 'secondary'
+            ? palette.secondary
+            : palette.accent;
+      this._tintScratch.set(hex);
+      this._tintResult.r = this._tintScratch.r;
+      this._tintResult.g = this._tintScratch.g;
+      this._tintResult.b = this._tintScratch.b;
+    }
+    return this._tintResult;
+  }
+
   private getAudioData(): { bass: number; mid: number; high: number } {
+    // Frame-rate independent smoothing: scale coefficients by delta time
+    // so behavior is consistent across 30fps, 60fps, and 144Hz displays
+    const now = performance.now() / 1000;
+    const dt = Math.min(this._lastFrameTime ? now - this._lastFrameTime : 1 / 60, 0.1);
+    this._lastFrameTime = now;
+    const dtScale = dt * 60; // normalize to 60fps baseline
+
     if (!this.audioEnabled || !this.analyser || !this.dataArray) {
-      return { bass: 0, mid: 0, high: 0 };
+      // Decay smoothed values toward zero when audio is off
+      const decay = 1 - Math.pow(0.1, dtScale);
+      this.smoothBass -= this.smoothBass * decay;
+      this.smoothMid -= this.smoothMid * decay;
+      this.smoothHigh -= this.smoothHigh * decay;
+      return { bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh };
     }
 
     this.analyser.getByteFrequencyData(this.dataArray);
 
+    const sensitivity = this.config.audioSensitivity ?? 1.0;
+
     // Bass: bins 0-5 (~0-200Hz)
     let bassSum = 0;
     for (let i = 0; i < 6; i++) bassSum += this.dataArray[i];
-    const bass = bassSum / (6 * 255);
+    const rawBass = Math.min(1, (bassSum / (6 * 255)) * sensitivity);
 
     // Mid: bins 5-30 (~200Hz-1.2kHz)
     let midSum = 0;
     for (let i = 5; i < 30; i++) midSum += this.dataArray[i];
-    const mid = midSum / (25 * 255);
+    const rawMid = Math.min(1, (midSum / (25 * 255)) * sensitivity);
 
     // High: bins 30-60 (~1.2kHz-2.4kHz)
     let highSum = 0;
     for (let i = 30; i < 60; i++) highSum += this.dataArray[i];
-    const high = highSum / (30 * 255);
+    const rawHigh = Math.min(1, (highSum / (30 * 255)) * sensitivity);
 
-    return { bass, mid, high };
+    // Exponential smoothing — fast attack so beats land, slow release so it doesn't jitter
+    // Coefficients are frame-rate independent via dtScale
+    const attack = 1 - Math.pow(1 - 0.4, dtScale);
+    const release = 1 - Math.pow(1 - 0.15, dtScale);
+    this.smoothBass += (rawBass - this.smoothBass) * (rawBass > this.smoothBass ? attack : release);
+    this.smoothMid += (rawMid - this.smoothMid) * (rawMid > this.smoothMid ? attack : release);
+    this.smoothHigh += (rawHigh - this.smoothHigh) * (rawHigh > this.smoothHigh ? attack : release);
+
+    return { bass: this.smoothBass, mid: this.smoothMid, high: this.smoothHigh };
   }
 
   private updateCamera(audio: { bass: number; mid: number; high: number }): void {
@@ -307,9 +362,11 @@ export class VisualizerEngine {
       this.sceneHandler.setTextureTransform({
         opacity: baseOpacity * animMul,
         rotation: motion.rotationZ,
+        rotationY: motion.rotationY,
         offsetX: motion.offsetX,
         offsetY: motion.offsetY,
         scale: motion.extraScale,
+        tintColor: this.resolveTintColor(),
       });
     }
 
@@ -320,6 +377,11 @@ export class VisualizerEngine {
     const prevScene = this.config.scene;
     const prevDensity = this.config.particleDensity;
     this.config = { ...this.config, ...newConfig };
+
+    // Invalidate tint cache when relevant config changes
+    if (newConfig.textureTint !== undefined || newConfig.colorPalette) {
+      this._tintDirty = true;
+    }
 
     const densityChanged =
       newConfig.particleDensity !== undefined && newConfig.particleDensity !== prevDensity;
@@ -360,7 +422,11 @@ export class VisualizerEngine {
       (this.scene.fog as THREE.FogExp2).density = newConfig.depth * 0.1;
     }
 
-    // Re-position camera when scene params change (e.g. Grid viewAngle)
+    // Reset camera when switching back to static, or when scene params change
+    if (newConfig.cameraMovement === 'static') {
+      this.cameraAngle = 0;
+      this.positionCamera();
+    }
     if (newConfig.sceneParams && this.getCameraHint() === 'low-angle') {
       this.positionCamera();
     }

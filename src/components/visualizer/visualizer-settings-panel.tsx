@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   X,
-  RotateCcw,
+  RefreshCw,
+  Undo2,
   ChevronDown,
   ChevronRight,
   Upload,
@@ -12,6 +13,7 @@ import {
   Copy,
   Check,
   Loader2,
+  Shuffle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -23,6 +25,7 @@ import {
   SliderControl,
   TextureAnimationPicker,
   TextureMotionPicker,
+  TextureTintPicker,
 } from '@/components/settings/slider-control';
 import { CueManagementPanel } from '@/components/visualizer/cue-management-panel';
 import { SetSettingsPanel } from '@/components/visualizer/set-settings-panel';
@@ -276,6 +279,65 @@ export function VisualizerSettingsPanel({
   const sceneFeatures = new Set(sceneMeta?.features ?? []);
   const currentSceneMeta = allScenes.find((s) => s.id === config.scene);
 
+  const handleRandomize = () => {
+    const randomScene = allScenes[Math.floor(Math.random() * allScenes.length)];
+    const randomPreset = COLOR_PRESETS[Math.floor(Math.random() * COLOR_PRESETS.length)];
+    const meta = getSceneMetadata(randomScene.id);
+    const hint = meta?.cameraHint ?? 'default';
+    const cameraLocked = hint === 'small-plane' || hint === 'low-angle';
+
+    const cameraOptions = cameraLocked
+      ? (['static'] as const)
+      : (['static', 'orbit', 'drift', 'pulse'] as const);
+    const randomCamera = cameraOptions[Math.floor(Math.random() * cameraOptions.length)];
+
+    // Randomize per-scene params from metadata
+    const sceneParams: Record<string, number | boolean | string> = {};
+    if (meta?.params) {
+      for (const param of meta.params) {
+        if (TOP_LEVEL_PARAM_KEYS.has(param.key)) continue;
+        if (param.type === 'slider') {
+          const steps = Math.round((param.max! - param.min!) / param.step!);
+          sceneParams[param.key] =
+            param.min! + Math.floor(Math.random() * (steps + 1)) * param.step!;
+        } else if (param.type === 'toggle') {
+          sceneParams[param.key] = Math.random() > 0.5;
+        } else if (param.type === 'select' && param.options) {
+          sceneParams[param.key] =
+            param.options[Math.floor(Math.random() * param.options.length)].value;
+        }
+      }
+    }
+
+    onConfigUpdate({
+      scene: randomScene.id,
+      colorPalette: randomPreset.colors,
+      particleDensity: Math.round((0.2 + Math.random() * 0.8) * 10) / 10,
+      animationSpeed: Math.round((0.5 + Math.random() * 1.5) * 10) / 10,
+      bloomIntensity: Math.round((0.3 + Math.random() * 2.7) * 10) / 10,
+      audioReactivity: Math.round((0.3 + Math.random() * 0.7) * 20) / 20,
+      cameraMovement: randomCamera,
+      wireframe: Math.random() > 0.85,
+      symmetry: Math.floor(1 + Math.random() * 12),
+      depth: Math.round(Math.random() * 20) / 20,
+      colorCycleSpeed: Math.round(Math.random() * 2 * 10) / 10,
+      sceneParams,
+      // Preserve texture/pattern
+      customTextureUrl: config.customTextureUrl,
+      textureScale: config.textureScale,
+      textureOpacity: config.textureOpacity,
+      textureAnimation: config.textureAnimation,
+      textureMotion: config.textureMotion,
+      textureTint: config.textureTint,
+      audioSensitivity: config.audioSensitivity,
+      patternOffsetX: config.patternOffsetX,
+      patternOffsetY: config.patternOffsetY,
+    });
+
+    // Expand the category of the new scene so it's visible
+    setExpandedCategories(new Set([randomScene.category]));
+  };
+
   return (
     <div
       className={cn(
@@ -294,7 +356,7 @@ export function VisualizerSettingsPanel({
             className="p-1 text-emerald-400/70 hover:text-emerald-400 rounded transition-colors"
             title="Refresh visualizer"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={onShowHelp}
@@ -368,7 +430,7 @@ export function VisualizerSettingsPanel({
             {/* Share URL — only shown for saved sets */}
             {setId && (
               <section>
-                <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+                <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                   Share Set
                 </label>
                 <div className="flex gap-2">
@@ -392,7 +454,7 @@ export function VisualizerSettingsPanel({
 
             {/* Scene Type - Category Grid */}
             <section>
-              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                 Scene Type
               </label>
               {currentSceneMeta && (
@@ -453,7 +515,7 @@ export function VisualizerSettingsPanel({
 
             {/* Color Presets */}
             <section>
-              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                 Color Preset
               </label>
               <div className="max-h-60 overflow-y-auto pr-0.5">
@@ -582,7 +644,7 @@ export function VisualizerSettingsPanel({
             <section>
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
+                  <label className="text-white/70 text-xs font-semibold uppercase tracking-wider">
                     Audio Input
                   </label>
                   <p className="text-white/30 text-[10px] mt-0.5">
@@ -608,7 +670,7 @@ export function VisualizerSettingsPanel({
 
             {/* Camera Movement */}
             <section>
-              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                 Camera Movement
               </label>
               {(() => {
@@ -694,14 +756,24 @@ export function VisualizerSettingsPanel({
 
             {/* Audio Reactivity - only meaningful when audio input is on */}
             {audioInputEnabled && (
-              <SliderControl
-                label="Audio Reactivity"
-                value={config.audioReactivity}
-                min={0}
-                max={1}
-                step={0.05}
-                onChange={(v) => onQuickChange({ audioReactivity: v })}
-              />
+              <>
+                <SliderControl
+                  label="Audio Reactivity"
+                  value={config.audioReactivity}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onChange={(v) => onQuickChange({ audioReactivity: v })}
+                />
+                <SliderControl
+                  label="Audio Sensitivity"
+                  value={config.audioSensitivity ?? 1.0}
+                  min={0.5}
+                  max={3}
+                  step={0.1}
+                  onChange={(v) => onQuickChange({ audioSensitivity: v })}
+                />
+              </>
             )}
 
             {/* Animation Speed */}
@@ -738,7 +810,7 @@ export function VisualizerSettingsPanel({
                   return (
                     <section key={param.key}>
                       <div className="flex items-center justify-between">
-                        <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
+                        <label className="text-white/70 text-xs font-semibold uppercase tracking-wider">
                           {param.label}
                         </label>
                         <button
@@ -786,7 +858,7 @@ export function VisualizerSettingsPanel({
                 return (
                   <section key={param.key}>
                     <div className="flex items-center justify-between">
-                      <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
+                      <label className="text-white/70 text-xs font-semibold uppercase tracking-wider">
                         {param.label}
                       </label>
                       <button
@@ -816,7 +888,7 @@ export function VisualizerSettingsPanel({
                   (config.sceneParams?.[param.key] as string) ?? (param.default as string);
                 return (
                   <section key={param.key}>
-                    <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+                    <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                       {param.label}
                     </label>
                     <div className="flex flex-wrap gap-1">
@@ -847,7 +919,7 @@ export function VisualizerSettingsPanel({
 
             {/* Custom Texture */}
             <section>
-              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
                 Custom Texture
               </label>
               <input
@@ -944,6 +1016,11 @@ export function VisualizerSettingsPanel({
                     onChange={(v) => onQuickChange({ textureMotion: v })}
                   />
                 )}
+                <TextureTintPicker
+                  value={config.textureTint ?? 'none'}
+                  onChange={(v) => onQuickChange({ textureTint: v })}
+                  palette={config.colorPalette}
+                />
                 {sceneFeatures.has('patternOffset') && (
                   <>
                     <SliderControl
@@ -967,17 +1044,24 @@ export function VisualizerSettingsPanel({
               </>
             )}
 
-            {/* Reset */}
-            <section>
+            {/* Randomize & Reset */}
+            <section className="flex gap-2">
+              <button
+                onClick={handleRandomize}
+                className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                Randomize
+              </button>
               <button
                 onClick={() => {
                   const defaults = buildDefaultConfig(config.scene);
                   onConfigUpdate(defaults);
                 }}
-                className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Reset to Defaults
+                <Undo2 className="w-3.5 h-3.5" />
+                Reset
               </button>
             </section>
           </>

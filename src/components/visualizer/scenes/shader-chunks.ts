@@ -15,6 +15,7 @@ export const TEXTURE_UNIFORMS = `
   uniform float uTexRotation;
   uniform float uTexOffsetX;
   uniform float uTexOffsetY;
+  uniform vec3 uTexTintColor;
 `;
 
 /**
@@ -33,6 +34,7 @@ export const TEXTURE_SAMPLE_FN = `
     texUv += vec2(uTexOffsetX, uTexOffsetY);
     texUv += 0.5;
     vec4 texColor = texture2D(uTexture, texUv);
+    texColor.rgb *= uTexTintColor;
     float inBounds = step(0.0, texUv.x) * step(texUv.x, 1.0)
                    * step(0.0, texUv.y) * step(texUv.y, 1.0);
     return vec4(texColor.rgb, texColor.a * uTextureOpacity * inBounds);
@@ -49,6 +51,7 @@ export function createTextureUniforms(config: { textureScale?: number; textureOp
     uTexRotation: { value: 0 },
     uTexOffsetX: { value: 0 },
     uTexOffsetY: { value: 0 },
+    uTexTintColor: { value: new THREE.Color(1, 1, 1) },
   };
 }
 
@@ -67,4 +70,6 @@ export function applyTextureTransform(
   material.uniforms.uTexRotation.value = transform.rotation;
   material.uniforms.uTexOffsetX.value = transform.offsetX;
   material.uniforms.uTexOffsetY.value = transform.offsetY;
+  const tc = transform.tintColor;
+  material.uniforms.uTexTintColor.value.setRGB(tc.r, tc.g, tc.b);
 }

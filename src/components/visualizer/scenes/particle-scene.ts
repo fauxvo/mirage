@@ -169,6 +169,8 @@ export class ParticleScene {
   setTextureTransform(transform: TextureTransform): void {
     this.material.opacity = transform.opacity;
     this.material.transparent = true;
+    const tc = transform.tintColor;
+    this.material.color.setRGB(tc.r, tc.g, tc.b);
     if (this.material.map) {
       this.material.map.rotation = transform.rotation;
       this.material.map.center.set(0.5, 0.5);

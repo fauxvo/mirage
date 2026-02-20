@@ -23,7 +23,11 @@ export const VisualizerConfigSchema = z.object({
   textureScale: z.number().min(0.2).max(3),
   textureOpacity: z.number().min(0).max(1),
   textureAnimation: z.enum(['none', 'pulse', 'breathe', 'flash', 'strobe']),
-  textureMotion: z.enum(['none', 'fixed', 'spin', 'bounce', 'float', 'swing']).default('none'),
+  textureMotion: z
+    .enum(['none', 'fixed', 'spin', 'rotate', 'bounce', 'float', 'swing'])
+    .default('none'),
+  textureTint: z.enum(['none', 'primary', 'secondary', 'accent']).default('none'),
+  audioSensitivity: z.number().min(0.5).max(3).default(1.0),
   patternOffsetX: z.number().min(-1).max(1),
   patternOffsetY: z.number().min(-1).max(1).default(0),
   sceneParams: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])).optional(),

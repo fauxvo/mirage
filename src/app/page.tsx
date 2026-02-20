@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { verifySession } from '@/lib/auth/session';
 
 const FEATURES = [
-  '26 Scenes',
+  '25 Scenes',
   'Audio Reactive',
   'Sets & Cues',
   'Full Customization',
