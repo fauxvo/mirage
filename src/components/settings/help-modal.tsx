@@ -77,31 +77,42 @@ export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
           {section === 'scenes' && (
             <HelpContent>
               <HelpParagraph>
-                23 scenes grouped into five categories. Each has unique visual characteristics and
+                25 scenes grouped into five categories. Each has unique visual characteristics and
                 responds to audio differently.
               </HelpParagraph>
               <HelpItem title="Organic">
-                Natural, flowing visuals: auroras, oceans, nebulae, lava.
+                Natural, flowing visuals: auroras, particles, oceans, lava, metaballs.
               </HelpItem>
               <HelpItem title="Cosmic">
-                Space-themed: particles, galaxies, starfields, DNA helixes.
+                Space-themed: galaxies, starfields, nebula, vortex, swarm.
               </HelpItem>
               <HelpItem title="Geometric">
-                Mathematical precision: sacred geometry, rings, kaleidoscopes, fractals.
+                Mathematical precision: rings, orb, kaleidoscopes, voronoi, grid.
               </HelpItem>
               <HelpItem title="Abstract">
-                Artistic shapes: orbs, metaballs, waveforms, voronoi, starbursts.
+                Artistic shapes: fractals, waveforms, matrix, lattice.
               </HelpItem>
-              <HelpItem title="Immersive">
-                Full-environment: tunnels, terrain, matrix rain, vortexes.
-              </HelpItem>
+              <HelpItem title="Immersive">Full-environment: tunnels, terrain, starbursts.</HelpItem>
               <HelpItem title="Starburst Family">
                 Four starburst variants centre your custom texture over radiating rays.
                 <strong> Starburst</strong> is the standard,
                 <strong> Soft</strong> has wide dreamy rays,
                 <strong> Sharp</strong> has thin retro sunburst bands,
-                <strong> Spin</strong> has full-screen rays with Y-axis texture rotation. Best
-                paired with a custom texture (logo, artwork, photo).
+                <strong> Classic</strong> has ray centre that moves with camera orbit. Best paired
+                with a custom texture (logo, artwork, photo).
+              </HelpItem>
+              <HelpItem title="New: Grid">
+                Neon equalizer floor with bouncing points. Use the View Angle slider to switch
+                between ground-level and top-down perspectives. Wave Pattern selector controls the
+                animation style.
+              </HelpItem>
+              <HelpItem title="New: Swarm">
+                Bioluminescent cloud of floating particles distributed in a sphere. Bass breathes
+                the swarm outward, mids boost rotation.
+              </HelpItem>
+              <HelpItem title="New: Lattice">
+                Crystal constellation of glowing orbs on a 3D grid. Bass swells point sizes
+                dramatically with bloom, highs shift hue.
               </HelpItem>
             </HelpContent>
           )}
@@ -109,7 +120,8 @@ export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
           {section === 'colors' && (
             <HelpContent>
               <HelpItem title="Presets">
-                Eight curated palettes. Click any preset to apply instantly.
+                23 curated palettes organized by mood (vibrant, warm, cool, purple, dark/moody).
+                Click any preset to apply instantly.
               </HelpItem>
               <HelpItem title="Custom Colors">
                 Click &quot;Custom&quot; to reveal four color pickers for primary, secondary,
@@ -133,9 +145,13 @@ export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
               <HelpItem title="Animation Speed (0.5 - 2)">
                 Controls overall speed of all animations and camera movement.
               </HelpItem>
+              <HelpItem title="Camera Mode">
+                Choose from Static, Orbit (sprinkler-style swing), Drift (gentle floating), or Pulse
+                (bass-reactive zoom). Flat-plane scenes auto-lock to Static.
+              </HelpItem>
               <HelpItem title="Per-Scene Controls">
-                Some scenes have additional controls (particle density, symmetry folds, wireframe)
-                that appear automatically when that scene is selected.
+                Some scenes have additional controls (particle density, symmetry folds, wireframe,
+                view angle, wave pattern) that appear automatically when that scene is selected.
               </HelpItem>
             </HelpContent>
           )}
@@ -143,14 +159,20 @@ export function HelpModal({ onClose, hasYoutubePlaylist }: HelpModalProps) {
           {section === 'texture' && (
             <HelpContent>
               <HelpParagraph>
-                Upload a custom image (logo, artwork, photo) to be applied as a texture. Images over
-                512KB are automatically optimized.
+                Upload a custom image (logo, artwork, photo) to be applied as a texture across all
+                scenes. Images over 512KB are automatically optimized.
               </HelpParagraph>
               <HelpItem title="Texture Size &amp; Opacity">
                 Adjust scale and transparency of the texture within the scene.
               </HelpItem>
-              <HelpItem title="Texture Animation (Starburst only)">
-                Five modes: None, Pulse, Breathe, Flash, Strobe.
+              <HelpItem title="Texture Animation">
+                Five modes available on all scenes: None, Pulse, Breathe, Flash, Strobe. Controls
+                how the texture opacity animates over time.
+              </HelpItem>
+              <HelpItem title="Texture Motion">
+                Motion modes available on all scenes: None, Spin, Bounce, Float, Swing, Fixed.
+                Controls how the texture moves within the scene. Starburst scenes also support
+                Pattern Offset sliders for precise positioning.
               </HelpItem>
             </HelpContent>
           )}

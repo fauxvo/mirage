@@ -9,9 +9,26 @@ interface SliderControlProps {
   max: number;
   step: number;
   onChange: (value: number) => void;
+  /** Optional nonlinear transform: converts display value (0-1) ↔ real value. */
+  transform?: {
+    /** Convert real value → slider position. */
+    toSlider: (value: number) => number;
+    /** Convert slider position → real value. */
+    fromSlider: (slider: number) => number;
+  };
 }
 
-export function SliderControl({ label, value, min, max, step, onChange }: SliderControlProps) {
+export function SliderControl({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  transform,
+}: SliderControlProps) {
+  const sliderValue = transform ? transform.toSlider(value) : value;
+
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
@@ -25,15 +42,18 @@ export function SliderControl({ label, value, min, max, step, onChange }: Slider
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        value={sliderValue}
+        onChange={(e) => {
+          const raw = parseFloat(e.target.value);
+          onChange(transform ? transform.fromSlider(raw) : raw);
+        }}
         className="w-full h-1.5 appearance-none bg-white/10 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
       />
     </section>
   );
 }
 
-export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
+import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
 
 const TEXTURE_ANIMATIONS: { value: TextureAnimation; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Static opacity' },
@@ -74,6 +94,51 @@ export function TextureAnimationPicker({
       </div>
       <p className="mt-1 text-white/30 text-[10px]">
         {TEXTURE_ANIMATIONS.find((a) => a.value === value)?.description}
+      </p>
+    </section>
+  );
+}
+
+const TEXTURE_MOTIONS: { value: TextureMotion; label: string; description: string }[] = [
+  { value: 'none', label: 'None', description: 'No movement' },
+  { value: 'fixed', label: 'Fixed', description: 'Always faces camera during orbit' },
+  { value: 'spin', label: 'Spin', description: 'Continuous rotation' },
+  { value: 'bounce', label: 'Bounce', description: 'Vertical bounce with squash' },
+  { value: 'float', label: 'Float', description: 'Gentle figure-8 drift' },
+  { value: 'swing', label: 'Swing', description: 'Pendulum rock back and forth' },
+];
+
+export function TextureMotionPicker({
+  value,
+  onChange,
+}: {
+  value: TextureMotion;
+  onChange: (v: TextureMotion) => void;
+}) {
+  return (
+    <section>
+      <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+        Texture Motion
+      </label>
+      <div className="flex flex-wrap gap-1">
+        {TEXTURE_MOTIONS.map((m) => (
+          <button
+            key={m.value}
+            onClick={() => onChange(m.value)}
+            title={m.description}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all',
+              value === m.value
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-transparent'
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-white/30 text-[10px]">
+        {TEXTURE_MOTIONS.find((m) => m.value === value)?.description}
       </p>
     </section>
   );

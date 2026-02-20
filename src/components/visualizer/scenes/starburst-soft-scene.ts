@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import type { SceneRegistration, SceneUserData } from './types';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Soft Scene
@@ -13,9 +13,9 @@ import { computeAnimatedOpacity } from './starburst-utils';
  */
 
 const BURST_VERTEX = `
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
   void main() {
-    vUv = uv;
+    vWorldDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -33,10 +33,15 @@ const BURST_FRAGMENT = `
   uniform vec3 uBackground;
   uniform float uOffsetX;
   uniform float uOffsetY;
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, uOffsetY * 0.3);
+    vec3 dir = normalize(vWorldDir);
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    vec2 center = vec2(lon, lat) / 3.14159 * 3.0;
+    center -= vec2(uOffsetX * 0.3, uOffsetY * 0.3);
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -53,10 +58,9 @@ const BURST_FRAGMENT = `
     float bassPulse = 1.0 + uBass * uReactivity * 0.4;
     float midBright = 1.0 + uMid * uReactivity * 0.3;
 
-    // Wide radial spread, hollow center
-    float outerFade = 1.0 - smoothstep(0.1 * bassPulse, 0.65 * bassPulse, dist);
+    // Hollow center only — no outer fade so rays fill the entire sphere
     float innerFade = smoothstep(0.0, 0.15 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
+    float falloff = innerFade;
 
     float rayIntensity = rays * falloff * midBright;
 
@@ -64,15 +68,8 @@ const BURST_FRAGMENT = `
     vec3 rayColor = mix(uPrimary, uSecondary, smoothstep(0.0, 0.5, dist));
     rayColor = mix(rayColor, uAccent, rays * 0.15);
 
-    // Composition — no harsh center
-    vec3 color = uBackground;
-    color += rayColor * rayIntensity * 0.6;
-
-    // Very gentle vignette
-    float vignette = 1.0 - smoothstep(0.4, 0.8, dist);
-    color *= 0.65 + vignette * 0.35;
-
-    gl_FragColor = vec4(color, 1.0);
+    // Background always at full brightness; rays add on top
+    gl_FragColor = vec4(uBackground + rayColor * rayIntensity * 0.6, 1.0);
   }
 `;
 
@@ -107,15 +104,7 @@ const LOGO_FRAGMENT = `
       tex.rgb *= breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
-      vec2 center = vUv - 0.5;
-      float dist = length(center);
-      float pulse = 1.0 + uBass * uReactivity * 0.15;
-      float orb = 1.0 - smoothstep(0.0, 0.35 * pulse, dist);
-      float ring = smoothstep(0.25, 0.3, dist) * (1.0 - smoothstep(0.3, 0.35, dist));
-      float shimmer = sin(atan(center.y, center.x) * 6.0 + uTime * uSpeed * 1.5) * 0.5 + 0.5;
-      vec3 color = mix(uPrimary, uAccent, shimmer * 0.4);
-      float alpha = orb * 0.8 + ring * 0.5;
-      gl_FragColor = vec4(color * (orb + ring * 0.4), alpha);
+      discard;
     }
   }
 `;
@@ -127,16 +116,18 @@ export class StarburstSoftScene {
   private logoMaterial: THREE.ShaderMaterial;
   private clock: THREE.Clock;
   private config: VisualizerConfig;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     config: VisualizerConfig
   ) {
     this.config = config;
+    this.camera = (scene.userData as SceneUserData).camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    const burstGeo = new THREE.SphereGeometry(50, 32, 16);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -154,11 +145,11 @@ export class StarburstSoftScene {
         uOffsetX: { value: config.patternOffsetX ?? 0 },
         uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
+      side: THREE.BackSide,
       depthWrite: false,
     });
 
     this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
-    this.burstMesh.position.z = -2;
     this.scene.add(this.burstMesh);
 
     const logoGeo = new THREE.PlaneGeometry(3, 3);
@@ -210,9 +201,21 @@ export class StarburstSoftScene {
     this.logoMesh.scale.setScalar(breathe);
 
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0;
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -254,7 +257,8 @@ export class StarburstSoftScene {
     if (
       config.textureScale !== undefined ||
       config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined
+      config.textureAnimation !== undefined ||
+      config.textureMotion !== undefined
     ) {
       this.config = { ...this.config, ...config };
     }
@@ -291,7 +295,14 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass gently widens rays, mids brighten the glow',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
+  cameraHint: 'centered',
 };
 
 registerScene('starburst-soft', (scene, config) => new StarburstSoftScene(scene, config), METADATA);

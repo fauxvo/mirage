@@ -1,4 +1,4 @@
-import { eq, type InferSelectModel } from 'drizzle-orm';
+import { eq, count, type InferSelectModel, getTableColumns } from 'drizzle-orm';
 import { getDb } from '../index';
 import { sets, cues } from '../schema';
 import type { Cue } from './cue.repository';
@@ -54,8 +54,17 @@ export class SetRepository {
     return { ...set, cues: setCues };
   }
 
-  async listByUser(userId: string) {
-    return this.db.select().from(sets).where(eq(sets.userId, userId)).orderBy(sets.createdAt);
+  async listByUserWithCueCount(userId: string) {
+    return this.db
+      .select({
+        ...getTableColumns(sets),
+        cueCount: count(cues.id).as('cueCount'),
+      })
+      .from(sets)
+      .leftJoin(cues, eq(sets.id, cues.setId))
+      .where(eq(sets.userId, userId))
+      .groupBy(sets.id)
+      .orderBy(sets.createdAt);
   }
 
   async update(

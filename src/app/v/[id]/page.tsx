@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { use } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Settings, Maximize2, Volume2, VolumeX } from 'lucide-react';
+import { Settings, Maximize2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VisualizerEngine } from '@/components/visualizer/visualizer-engine';
 import { VisualizerSettingsPanel } from '@/components/visualizer/visualizer-settings-panel';
@@ -597,9 +597,9 @@ export default function VisualizerPage({ params }: { params: Promise<{ id: strin
         <button
           onClick={() => handleToggleAudio(!audioEnabled)}
           className="p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white/70 hover:text-white transition-colors backdrop-blur-sm"
-          title={audioEnabled ? 'Mute audio (M)' : 'Enable audio (M)'}
+          title={audioEnabled ? 'Disable mic (M)' : 'Enable mic (M)'}
         >
-          {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          {audioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
         </button>
         <button
           onClick={() => {

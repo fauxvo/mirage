@@ -1,4 +1,5 @@
-import type { TextureAnimation } from '@/types/visualizer';
+import * as THREE from 'three';
+import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
 
 /**
  * Compute the animated opacity value based on the selected animation mode.
@@ -38,4 +39,84 @@ export function computeAnimatedOpacity(
     default:
       return 1.0;
   }
+}
+
+export interface TextureMotionResult {
+  rotationZ: number;
+  offsetX: number;
+  offsetY: number;
+  /**
+   * Mesh-level scale multiplier (e.g. bounce squash). 1 = no change.
+   * Applied to mesh scale by scenes with texture planes (starburst, galaxy).
+   * NOT applied in UV-space by shader scenes — see applyTextureTransform() comment.
+   */
+  extraScale: number;
+}
+
+/**
+ * Compute texture mesh transform based on the selected motion mode.
+ * Returns rotation, position offset, and scale adjustments to apply to the logo mesh.
+ */
+export function computeTextureMotion(
+  mode: TextureMotion,
+  time: number,
+  speed: number,
+  bass: number
+): TextureMotionResult {
+  const none: TextureMotionResult = { rotationZ: 0, offsetX: 0, offsetY: 0, extraScale: 1 };
+  switch (mode) {
+    case 'spin': {
+      // Continuous slow rotation
+      return { ...none, rotationZ: time * speed * 0.4 };
+    }
+    case 'bounce': {
+      // Vertical bounce with bass impact
+      const bounce = Math.abs(Math.sin(time * speed * 1.5));
+      const impact = 1 - bounce * 0.1; // slight squash at bottom
+      return { ...none, offsetY: bounce * 0.6 + bass * 0.2, extraScale: impact };
+    }
+    case 'float': {
+      // Gentle figure-8 drift
+      return {
+        ...none,
+        offsetX: Math.sin(time * speed * 0.4) * 0.4,
+        offsetY: Math.sin(time * speed * 0.6) * 0.25,
+      };
+    }
+    case 'swing': {
+      // Pendulum rock back and forth
+      const angle = Math.sin(time * speed * 0.8) * 0.3;
+      return { ...none, rotationZ: angle };
+    }
+    case 'fixed':
+    case 'none':
+    default:
+      return none;
+  }
+}
+
+// Reusable vectors to avoid per-frame allocations
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3();
+
+/**
+ * Billboard the logo mesh to always face the camera and apply offsets in
+ * camera-local space so the texture stays screen-centred during camera orbit.
+ */
+export function applyFixedMotion(
+  logoMesh: THREE.Mesh,
+  camera: THREE.Camera,
+  offsetX: number,
+  offsetY: number
+): void {
+  // Billboard: rotate plane to face camera
+  logoMesh.lookAt(camera.position);
+
+  // Position with offset in camera-local coordinates
+  _right.setFromMatrixColumn(camera.matrixWorld, 0);
+  _up.setFromMatrixColumn(camera.matrixWorld, 1);
+
+  logoMesh.position.set(0, 0, 0);
+  logoMesh.position.addScaledVector(_right, offsetX * 4.0);
+  logoMesh.position.addScaledVector(_up, offsetY * 4.0);
 }

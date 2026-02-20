@@ -119,7 +119,7 @@ export function SetsSection({ username }: { username: string }) {
 
       {/* Sets list */}
       {!loading && sets.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
           {sets.map((set) => (
             <SetCard
               key={set.id}

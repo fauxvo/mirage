@@ -9,40 +9,55 @@ import {
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
 
-export class StarfieldScene {
-  private particles: THREE.Points;
+export class SwarmScene {
+  private points: THREE.Points;
   private material: THREE.ShaderMaterial;
-  private velocities: Float32Array;
+  private group: THREE.Group;
   private clock: THREE.Clock;
-  private particleCount: number;
 
   private static VERTEX = `
-    attribute float aVelocity;
+    attribute float aPhase;
+    attribute float aColorMix;
+
     uniform float uTime;
+    uniform float uSpeed;
     uniform float uBass;
     uniform float uHigh;
-    uniform float uSpeed;
     uniform float uTextureScale;
     uniform bool uHasTexture;
-    varying float vVelocity;
-    varying float vZ;
+
+    varying float vPhase;
+    varying float vColorMix;
+    varying float vDist;
 
     void main() {
-      vVelocity = aVelocity;
-      vec3 pos = position;
+      vPhase = aPhase;
+      vColorMix = aColorMix;
 
-      // Move stars toward camera
-      float speed = (1.0 + uBass * 2.0) * uSpeed;
-      pos.z = mod(pos.z + uTime * aVelocity * speed, 40.0) - 20.0;
-      vZ = pos.z;
+      vec3 basePos = position;
+      float dist = length(basePos);
+      vDist = dist;
+
+      // Gentle floating drift via sine waves with per-particle phase
+      vec3 drift = vec3(
+        sin(uTime * uSpeed * 0.5 + aPhase) * 0.3,
+        cos(uTime * uSpeed * 0.3 + aPhase * 1.4) * 0.2,
+        sin(uTime * uSpeed * 0.4 + aPhase * 0.7) * 0.3
+      );
+
+      // Bass breathing — push outward from center
+      vec3 breathDir = normalize(basePos + vec3(0.001));
+      vec3 breath = breathDir * uBass * 0.8;
+
+      vec3 pos = basePos + drift + breath;
 
       vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-      // Stars get bigger as they approach
-      float size = mix(0.5, 4.0, 1.0 - (pos.z + 20.0) / 40.0);
-      // High frequencies extend streaks
+
+      // Size: closer to center = slightly bigger, highs boost size
+      float size = mix(1.5, 4.0, 1.0 - clamp(dist / 5.0, 0.0, 1.0));
       size += uHigh * 2.0;
-      // When texture is loaded, textureScale controls point size
       if (uHasTexture) size *= uTextureScale;
+
       gl_PointSize = size * (300.0 / -mvPos.z);
       gl_Position = projectionMatrix * mvPos;
     }
@@ -51,33 +66,50 @@ export class StarfieldScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    uniform float uHigh;
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
-    uniform float uHigh;
-    varying float vVelocity;
-    varying float vZ;
+
+    varying float vPhase;
+    varying float vColorMix;
+    varying float vDist;
 
     void main() {
       vec2 center = gl_PointCoord - 0.5;
       float d = length(center);
 
-      float closeness = 1.0 - (vZ + 20.0) / 40.0;
+      float closeness = 1.0 - clamp(vDist / 5.0, 0.0, 1.0);
 
       float alpha;
       vec4 texSample = vec4(1.0);
       if (uHasTexture) {
         texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texSample.a * (0.6 + closeness * 0.4);
+        alpha = texSample.a * (0.5 + closeness * 0.5);
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
-        float streak = smoothstep(0.5, 0.0, abs(center.x) * 3.0) * smoothstep(0.5, 0.0, d);
-        alpha = streak * (0.6 + closeness * 0.4);
+        float glow = exp(-d * 4.0);
+        float softEdge = 1.0 - smoothstep(0.2, 0.5, d);
+        alpha = (softEdge * 0.7 + glow * 0.3) * (0.5 + closeness * 0.5);
       }
 
-      vec3 color = mix(uSecondary, uPrimary, closeness);
-      color = mix(color, uAccent, smoothstep(0.7, 1.0, closeness));
+      // Color distributed by per-particle attribute
+      vec3 color;
+      if (vColorMix < 0.4) {
+        color = uPrimary;
+      } else if (vColorMix < 0.75) {
+        color = uSecondary;
+      } else {
+        color = uAccent;
+      }
+
+      // Emissive intensity from highs
+      float emissive = 0.6 + uHigh * 1.5;
+      color *= emissive;
+
+      // Accent glow for particles near center
+      color = mix(color, uAccent, closeness * 0.3);
 
       if (uHasTexture) color *= texSample.rgb;
 
@@ -92,27 +124,35 @@ export class StarfieldScene {
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    this.particleCount = Math.floor(2000 * config.particleDensity + 1000);
-    const positions = new Float32Array(this.particleCount * 3);
-    this.velocities = new Float32Array(this.particleCount);
+    const particleCount = Math.floor(1500 * config.particleDensity + 500);
+    const positions = new Float32Array(particleCount * 3);
+    const phases = new Float32Array(particleCount);
+    const colorMixes = new Float32Array(particleCount);
 
-    for (let i = 0; i < this.particleCount; i++) {
-      // Spread across a tube-like region
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * 8;
-      positions[i * 3] = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = Math.sin(angle) * radius;
-      positions[i * 3 + 2] = Math.random() * 40 - 20;
-      this.velocities[i] = 0.5 + Math.random() * 2;
+    for (let i = 0; i < particleCount; i++) {
+      // Uniform sphere volume distribution
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = Math.cbrt(Math.random()) * 5;
+
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+
+      // Per-particle phase for drift animation
+      phases[i] = Math.random() * Math.PI * 2;
+      // Color bucket: random value used in fragment shader to pick primary/secondary/accent
+      colorMixes[i] = Math.random();
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('aVelocity', new THREE.BufferAttribute(this.velocities, 1));
+    geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+    geometry.setAttribute('aColorMix', new THREE.BufferAttribute(colorMixes, 1));
 
     this.material = new THREE.ShaderMaterial({
-      vertexShader: StarfieldScene.VERTEX,
-      fragmentShader: StarfieldScene.FRAGMENT,
+      vertexShader: SwarmScene.VERTEX,
+      fragmentShader: SwarmScene.FRAGMENT,
       uniforms: {
         uTime: { value: 0 },
         uBass: { value: 0 },
@@ -128,16 +168,23 @@ export class StarfieldScene {
       depthWrite: false,
     });
 
-    this.particles = new THREE.Points(geometry, this.material);
-    this.scene.add(this.particles);
+    this.points = new THREE.Points(geometry, this.material);
+    this.group = new THREE.Group();
+    this.group.add(this.points);
+    this.scene.add(this.group);
   }
 
   update(bass: number, mid: number, high: number): void {
     const time = this.clock.getElapsedTime();
     const r = this.config.audioReactivity;
+    const speed = this.config.animationSpeed;
+
     this.material.uniforms.uTime.value = time;
     this.material.uniforms.uBass.value = bass * r;
     this.material.uniforms.uHigh.value = high * r;
+
+    // Slow Y rotation boosted by mids
+    this.group.rotation.y += 0.002 * speed * (1 + mid * r * 2);
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
@@ -165,18 +212,19 @@ export class StarfieldScene {
   }
 
   dispose(): void {
-    this.scene.remove(this.particles);
-    this.particles.geometry.dispose();
+    this.scene.remove(this.group);
+    this.points.geometry.dispose();
     this.material.dispose();
   }
 }
 
 const METADATA: SceneRegistration = {
-  id: 'starfield',
-  name: 'Starfield',
-  description: 'Warp-speed star tunnel fly-through',
+  id: 'swarm',
+  name: 'Swarm',
+  description: 'Bioluminescent cloud of floating particles',
   category: 'cosmic',
-  audioDescription: 'Bass boosts speed, mids increase star density, highs extend streak length',
+  audioDescription:
+    'Bass breathes the swarm outward, mids boost rotation, highs pulse emissive glow',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
@@ -191,4 +239,4 @@ const METADATA: SceneRegistration = {
   ],
 };
 
-registerScene('starfield', (scene, config) => new StarfieldScene(scene, config), METADATA);
+registerScene('swarm', (scene, config) => new SwarmScene(scene, config), METADATA);

@@ -5,6 +5,9 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { createScene, type SceneHandler } from './scenes';
+import { getSceneMetadata } from './scenes/scene-registry';
+import type { CameraHint, SceneUserData } from './scenes/types';
+import { computeAnimatedOpacity, computeTextureMotion } from './scenes/starburst-utils';
 
 export class VisualizerEngine {
   private renderer: THREE.WebGLRenderer;
@@ -21,6 +24,8 @@ export class VisualizerEngine {
   private cameraAngle = 0;
   private customTexture: THREE.Texture | null = null;
   private customTextureUrl: string | null = null;
+  private clock = new THREE.Clock();
+  private densityReloadTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(canvas: HTMLCanvasElement, config: VisualizerConfig) {
     this.config = config;
@@ -82,7 +87,51 @@ export class VisualizerEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
+
+    // Reposition camera so flat-plane scenes still fill the viewport
+    this.positionCamera();
   };
+
+  /** Resolve the camera hint for the current scene from the registry. */
+  private getCameraHint(): CameraHint {
+    const meta = getSceneMetadata(this.config.scene);
+    return meta?.cameraHint ?? 'default';
+  }
+
+  private positionCamera(): void {
+    const hint = this.getCameraHint();
+
+    switch (hint) {
+      case 'small-plane': {
+        // 12×12 plane at z=-2: move camera so the plane fills the viewport width
+        const planeSize = 12;
+        const planeZ = -2;
+        const fovRad = (this.camera.fov * Math.PI) / 180;
+        const aspect = this.camera.aspect;
+        const distance = planeSize / (2 * Math.tan(fovRad / 2) * Math.max(aspect, 1));
+        this.camera.position.set(0, 0, planeZ + distance);
+        break;
+      }
+      case 'centered':
+        // Sphere starbursts — centered head-on
+        this.camera.position.set(0, 0, 6);
+        break;
+      case 'low-angle': {
+        // Ground-plane scenes — viewAngle slider controls perspective
+        // 0 = ground level, 0.5 = angled, 1 = top-down
+        const viewAngle = Number(this.config.sceneParams?.viewAngle ?? 0.3);
+        const camY = 0.3 + viewAngle * 11.7; // 0.3 → 12
+        const camZ = 10 - viewAngle * 10; // 10 → 0
+        this.camera.position.set(0, camY, camZ);
+        break;
+      }
+      default:
+        // 3D scenes — elevated angle for depth
+        this.camera.position.set(0, 2, 6);
+        break;
+    }
+    this.camera.lookAt(0, 0, 0);
+  }
 
   private loadCustomTexture(dataUrl: string): void {
     // Skip if same URL already loaded
@@ -102,8 +151,8 @@ export class VisualizerEngine {
       dataUrl,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
         // Apply pattern offset from config
         texture.offset.x = this.config.patternOffsetX ?? 0;
         texture.offset.y = this.config.patternOffsetY ?? 0;
@@ -153,6 +202,11 @@ export class VisualizerEngine {
       }
     }
 
+    this.positionCamera();
+
+    // IMPORTANT: Set camera before createScene — scenes read it from userData in their constructor
+    (this.scene.userData as SceneUserData).camera = this.camera;
+
     this.sceneHandler = createScene(sceneType, this.scene, this.config);
 
     // Pass cached texture to new scene
@@ -197,25 +251,31 @@ export class VisualizerEngine {
     return { bass, mid, high };
   }
 
-  private updateCamera(): void {
+  private updateCamera(audio: { bass: number; mid: number; high: number }): void {
+    const hint = this.getCameraHint();
+    // Flat-plane and ground-plane scenes: camera movement would reveal edges
+    if (hint === 'small-plane' || hint === 'low-angle') return;
+
     const speed = this.config.animationSpeed;
 
     switch (this.config.cameraMovement) {
-      case 'orbit':
-        this.cameraAngle += 0.002 * speed;
-        this.camera.position.x = Math.sin(this.cameraAngle) * 6;
-        this.camera.position.z = Math.cos(this.cameraAngle) * 6;
+      case 'orbit': {
+        // Oscillate ±50° from front (like a lawn sprinkler)
+        this.cameraAngle = (this.cameraAngle + 0.002 * speed) % (Math.PI * 2);
+        const swing = Math.sin(this.cameraAngle) * ((50 * Math.PI) / 180);
+        this.camera.position.x = Math.sin(swing) * 6;
+        this.camera.position.z = Math.cos(swing) * 6;
         this.camera.lookAt(0, 0, 0);
         break;
+      }
       case 'drift':
-        this.cameraAngle += 0.001 * speed;
+        this.cameraAngle = (this.cameraAngle + 0.001 * speed) % (Math.PI * 2);
         this.camera.position.x = Math.sin(this.cameraAngle * 0.7) * 2;
         this.camera.position.y = 2 + Math.sin(this.cameraAngle * 0.3) * 0.5;
         this.camera.lookAt(0, 0, 0);
         break;
       case 'pulse': {
-        const { bass } = this.getAudioData();
-        const pulseZ = 6 + bass * this.config.audioReactivity * -1.5;
+        const pulseZ = 6 + audio.bass * this.config.audioReactivity * -1.5;
         this.camera.position.z += (pulseZ - this.camera.position.z) * 0.05;
         break;
       }
@@ -228,19 +288,58 @@ export class VisualizerEngine {
   private animate = () => {
     this.animationFrameId = requestAnimationFrame(this.animate);
 
-    const { bass, mid, high } = this.getAudioData();
-    this.sceneHandler?.update(bass, mid, high);
-    this.updateCamera();
+    const audio = this.getAudioData();
+    this.sceneHandler?.update(audio.bass, audio.mid, audio.high);
+    this.updateCamera(audio);
+
+    // Engine-driven texture animation & motion for scenes that implement setTextureTransform
+    if (this.sceneHandler?.setTextureTransform && this.customTexture) {
+      const time = this.clock.getElapsedTime();
+      const speed = this.config.animationSpeed;
+      const baseOpacity = this.config.textureOpacity ?? 1.0;
+
+      const animMode = this.config.textureAnimation ?? 'none';
+      const animMul = computeAnimatedOpacity(animMode, time, speed, audio.bass);
+
+      const motionMode = this.config.textureMotion ?? 'none';
+      const motion = computeTextureMotion(motionMode, time, speed, audio.bass);
+
+      this.sceneHandler.setTextureTransform({
+        opacity: baseOpacity * animMul,
+        rotation: motion.rotationZ,
+        offsetX: motion.offsetX,
+        offsetY: motion.offsetY,
+        scale: motion.extraScale,
+      });
+    }
+
     this.composer.render();
   };
 
   updateConfig(newConfig: Partial<VisualizerConfig>): void {
     const prevScene = this.config.scene;
+    const prevDensity = this.config.particleDensity;
     this.config = { ...this.config, ...newConfig };
 
-    // Scene change requires full reload
+    const densityChanged =
+      newConfig.particleDensity !== undefined && newConfig.particleDensity !== prevDensity;
+
     if (newConfig.scene && newConfig.scene !== prevScene) {
-      this.loadScene(newConfig.scene);
+      // Scene change — immediate reload, cancel any pending density debounce
+      if (this.densityReloadTimeout) {
+        clearTimeout(this.densityReloadTimeout);
+        this.densityReloadTimeout = null;
+      }
+      this.loadScene(this.config.scene);
+    } else if (densityChanged) {
+      // Debounce density changes — geometry rebuild is expensive
+      if (this.densityReloadTimeout) clearTimeout(this.densityReloadTimeout);
+      this.densityReloadTimeout = setTimeout(() => {
+        this.loadScene(this.config.scene);
+        this.densityReloadTimeout = null;
+      }, 300);
+      // Still forward other config changes immediately
+      this.sceneHandler?.updateConfig(newConfig);
     } else {
       this.sceneHandler?.updateConfig(newConfig);
     }
@@ -259,6 +358,11 @@ export class VisualizerEngine {
     // Update depth/fog
     if (newConfig.depth !== undefined) {
       (this.scene.fog as THREE.FogExp2).density = newConfig.depth * 0.1;
+    }
+
+    // Re-position camera when scene params change (e.g. Grid viewAngle)
+    if (newConfig.sceneParams && this.getCameraHint() === 'low-angle') {
+      this.positionCamera();
     }
 
     // Handle custom texture changes
@@ -303,6 +407,9 @@ export class VisualizerEngine {
 
   dispose(): void {
     this.stop();
+    if (this.densityReloadTimeout) {
+      clearTimeout(this.densityReloadTimeout);
+    }
     window.removeEventListener('resize', this.handleResize);
     this.sceneHandler?.dispose();
     if (this.customTexture) {

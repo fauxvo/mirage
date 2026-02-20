@@ -78,7 +78,7 @@ export async function GET() {
   const { session, error } = await requireAuth();
   if (error) return error;
 
-  const sets = await setRepository.listByUser(session.userId);
+  const sets = await setRepository.listByUserWithCueCount(session.userId);
 
   return successResponse(
     sets.map((s) => ({
@@ -87,6 +87,7 @@ export async function GET() {
       description: s.description,
       youtubePlaylistUrl: s.youtubePlaylistUrl,
       isPublic: s.isPublic,
+      cueCount: s.cueCount,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
     }))

@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -11,7 +17,10 @@ const VERTEX_SHADER = `
   }
 `;
 
-const FRAGMENT_SHADER = `
+const FRAGMENT_SHADER =
+  TEXTURE_UNIFORMS +
+  TEXTURE_SAMPLE_FN +
+  `
   uniform float uTime;
   uniform float uBass;
   uniform float uMid;
@@ -20,8 +29,6 @@ const FRAGMENT_SHADER = `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
   varying vec2 vUv;
 
   vec3 palette(float t, vec3 a, vec3 b) {
@@ -75,8 +82,8 @@ const FRAGMENT_SHADER = `
     }
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -108,8 +115,7 @@ export class FractalScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -136,12 +142,19 @@ export class FractalScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -158,6 +171,8 @@ const METADATA: SceneRegistration = {
   category: 'geometric',
   audioDescription: 'Bass controls zoom level, mids drift parameters, highs cycle colors',
   params: [],
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
+  cameraHint: 'small-plane',
 };
 
 registerScene('fractal', (scene, config) => new FractalScene(scene, config), METADATA);

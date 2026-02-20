@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -11,7 +17,10 @@ const VERTEX_SHADER = `
   }
 `;
 
-const FRAGMENT_SHADER = `
+const FRAGMENT_SHADER =
+  TEXTURE_UNIFORMS +
+  TEXTURE_SAMPLE_FN +
+  `
   uniform float uTime;
   uniform float uBass;
   uniform float uMid;
@@ -21,8 +30,7 @@ const FRAGMENT_SHADER = `
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
   uniform vec2 uResolution;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
+  uniform vec3 uBackground;
   varying vec2 vUv;
 
   float smin(float a, float b, float k) {
@@ -74,7 +82,7 @@ const FRAGMENT_SHADER = `
       t += d;
     }
 
-    vec3 color = vec3(0.0);
+    vec3 color = uBackground;
 
     if (d < 0.01) {
       vec3 n = calcNormal(p);
@@ -95,8 +103,8 @@ const FRAGMENT_SHADER = `
     }
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -131,8 +139,8 @@ export class MetaballsScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        uBackground: { value: new THREE.Color(palette.background) },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -155,9 +163,15 @@ export class MetaballsScene {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
       this.material.uniforms.uSecondary.value.set(config.colorPalette.secondary);
       this.material.uniforms.uAccent.value.set(config.colorPalette.accent);
+      if (config.colorPalette.background) {
+        this.material.uniforms.uBackground.value.set(config.colorPalette.background);
+      }
     }
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
+    }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
     }
     this.config = { ...this.config, ...config };
   }
@@ -165,6 +179,10 @@ export class MetaballsScene {
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -178,8 +196,10 @@ const METADATA: SceneRegistration = {
   id: 'metaballs',
   name: 'Metaballs',
   description: 'Merging liquid blobs via raymarched SDF',
-  category: 'abstract',
+  category: 'organic',
   audioDescription: 'Bass enlarges blobs, mids control movement speed, highs add surface detail',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
+  cameraHint: 'small-plane',
   params: [],
 };
 

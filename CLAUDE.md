@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Mirage is a standalone, self-hosted web app for real-time 3D music visualization. It features 26 scenes powered by Three.js, microphone audio input, shareable sessions via REST API, texture uploads to S3-compatible storage, and per-scene bespoke settings. No AI dependency. Runs on port 4444.
+Mirage is a standalone, self-hosted web app for real-time 3D music visualization. It features 25 scenes powered by Three.js, microphone audio input, shareable sessions via REST API, texture uploads to S3-compatible storage, and per-scene bespoke settings. No AI dependency. Runs on port 4444.
 
 ## Tech Stack
 
@@ -63,7 +63,7 @@ mirage/
 │   │   │   ├── visualizer-settings-panel.tsx # Settings sidebar UI
 │   │   │   ├── youtube-player-bar.tsx         # YouTube playlist player bar
 │   │   │   ├── cue-switcher-bar.tsx          # Cue switching bottom bar
-│   │   │   └── scenes/                       # 26 scene implementations
+│   │   │   └── scenes/                       # 25 scene implementations
 │   │   │       ├── index.ts                  # Barrel import (triggers registration)
 │   │   │       ├── scene-registry.ts         # Registry: createScene, getAvailableScenes
 │   │   │       ├── types.ts                  # SceneHandler, SceneParamDef, SceneRegistration
@@ -209,15 +209,15 @@ Central Three.js orchestrator class handling:
 
 ### Scene System
 
-26 scenes organized into 5 categories:
+25 scenes organized into 5 categories:
 
-| Category  | Scenes                                                                                                         |
-| --------- | -------------------------------------------------------------------------------------------------------------- |
-| Organic   | aurora, particles, ocean, lava, metaballs                                                                      |
-| Cosmic    | galaxy, starfield, nebula, vortex                                                                              |
-| Geometric | geometric, rings, orb, kaleidoscope, voronoi                                                                   |
-| Abstract  | fractal, dna, matrix, waveform                                                                                 |
-| Immersive | tunnel, terrain, starburst, starburst-classic, starburst-flat, starburst-soft, starburst-sharp, starburst-spin |
+| Category  | Scenes                                                                         |
+| --------- | ------------------------------------------------------------------------------ |
+| Organic   | aurora, particles, ocean, lava, metaballs                                      |
+| Cosmic    | galaxy, starfield, nebula, vortex, swarm                                       |
+| Geometric | rings, orb, kaleidoscope, voronoi, grid                                        |
+| Abstract  | fractal, matrix, waveform, lattice                                             |
+| Immersive | tunnel, terrain, starburst, starburst-classic, starburst-soft, starburst-sharp |
 
 **Scene Registration Pattern:**
 
@@ -233,6 +233,7 @@ interface SceneHandler {
   update(bass: number, mid: number, high: number): void;
   updateConfig(config: Partial<VisualizerConfig>): void;
   setTexture?(texture: THREE.Texture | null): void;
+  setTextureTransform?(transform: TextureTransform): void;
   dispose(): void;
 }
 ```
@@ -272,13 +273,14 @@ interface SceneParamDef {
 
 - **S3 configured**: Upload via `/api/upload` → S3 bucket → URL stored in session
 - **S3 not configured**: Client-side optimization → base64 stored in config JSON
-- Texture properties: scale (0.2-3.0), opacity (0-1), animation mode
+- Texture properties: scale (0.2-3.0), opacity (0-1), animation mode, motion mode
 - Animation modes: none, pulse, breathe, flash, strobe
-- Starburst scenes also support `patternOffsetX` for horizontal positioning
+- Motion modes: none, spin, bounce, float, swing, fixed (starburst/galaxy scenes)
+- Starburst and galaxy scenes support `patternOffsetX`/`patternOffsetY` for positioning
 
 ### Color System
 
-- 8 built-in presets: Neon Rave, Dark Industrial, Sunset Warm, Ocean Deep, Arctic Glow, Forest Mystic, Vaporwave, Monochrome
+- 23 built-in presets organized by mood (vibrant, warm, cool, dark, minimal), optimized for dark rooms and projectors
 - Palette structure: `{ primary, secondary, accent, background }` (hex strings)
 - Custom color picker for manual palette editing
 - Auto-cycle mode: smooth lerp transitions between presets (8s interval, 1s transition)
@@ -288,7 +290,7 @@ interface SceneParamDef {
 
 All config changes validated against `VisualizerConfigSchema`:
 
-- 17 properties (scene, palette, density, speed, bloom, audio reactivity, camera, wireframe, symmetry folds, depth, color cycle, texture scale/opacity/animation/URL, pattern offset, scene params)
+- 19 properties (scene, palette, density, speed, bloom, audio reactivity, camera, wireframe, symmetry folds, depth, color cycle, texture scale/opacity/animation/motion/URL, pattern offset X/Y, scene params)
 - API requests validated before database writes
 - Invalid config falls back to defaults
 

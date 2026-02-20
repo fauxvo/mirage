@@ -1,22 +1,27 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, SceneUserData, TextureTransform } from './types';
+import { applyFixedMotion } from './starburst-utils';
 
 export class GalaxyScene {
   private particles: THREE.Points;
   private material: THREE.PointsMaterial;
   private coreGlow: THREE.Mesh;
   private coreMaterial: THREE.MeshBasicMaterial;
+  private texturePlane: THREE.Mesh | null = null;
+  private textureMaterial: THREE.MeshBasicMaterial | null = null;
   private basePositions: Float32Array;
   private clock: THREE.Clock;
   private particleCount: number;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     private config: VisualizerConfig
   ) {
     this.clock = new THREE.Clock();
+    this.camera = (scene.userData as SceneUserData).camera;
     const palette = config.colorPalette;
     this.particleCount = Math.floor(4000 * config.particleDensity + 2000);
 
@@ -113,11 +118,24 @@ export class GalaxyScene {
     // High frequencies boost brightness
     this.material.opacity = 0.6 + high * r * 0.4;
 
-    // Core glow pulses with bass
+    // Core glow / texture plane pulses with bass
     const coreScale = 1 + bass * r * 0.5;
-    this.coreGlow.scale.setScalar(coreScale);
-    this.coreMaterial.opacity = 0.4 + bass * r * 0.4;
-    this.coreGlow.rotation.y = time * 0.1;
+    if (this.texturePlane?.visible) {
+      const texScale = (this.config.textureScale ?? 1.0) * (1 + bass * r * 0.08);
+      this.texturePlane.scale.setScalar(texScale);
+
+      const motionMode = this.config.textureMotion ?? 'none';
+      if (motionMode === 'fixed') {
+        const offsetX = this.config.patternOffsetX ?? 0;
+        const offsetY = this.config.patternOffsetY ?? 0;
+        applyFixedMotion(this.texturePlane, this.camera, offsetX, offsetY);
+      }
+      // Non-fixed motion delegates rotation/position to setTextureTransform
+    } else {
+      this.coreGlow.scale.setScalar(coreScale);
+      this.coreMaterial.opacity = 0.4 + bass * r * 0.4;
+      this.coreGlow.rotation.y = time * 0.1;
+    }
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
@@ -142,12 +160,75 @@ export class GalaxyScene {
       this.particles.geometry.attributes.color.needsUpdate = true;
       this.coreMaterial.color.set(config.colorPalette.accent);
     }
+    if (config.textureScale !== undefined && this.texturePlane) {
+      this.texturePlane.scale.setScalar(config.textureScale);
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
+    // Apply texture to particles as point sprites
     this.material.map = texture;
     this.material.needsUpdate = true;
+
+    if (texture) {
+      // Hide core glow, show texture plane at centre
+      this.coreGlow.visible = false;
+
+      if (!this.texturePlane) {
+        this.textureMaterial = new THREE.MeshBasicMaterial({
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const geo = new THREE.PlaneGeometry(2, 2);
+        this.texturePlane = new THREE.Mesh(geo, this.textureMaterial);
+        this.scene.add(this.texturePlane);
+      }
+
+      this.textureMaterial!.map = texture;
+      this.textureMaterial!.opacity = this.config.textureOpacity ?? 1.0;
+      this.textureMaterial!.needsUpdate = true;
+
+      // Match aspect ratio
+      if (texture.image) {
+        const img = texture.image as HTMLImageElement;
+        const aspect = img.width / img.height;
+        const maxSize = 2;
+        const w = aspect >= 1 ? maxSize : maxSize * aspect;
+        const h = aspect >= 1 ? maxSize / aspect : maxSize;
+        this.texturePlane.geometry.dispose();
+        this.texturePlane.geometry = new THREE.PlaneGeometry(w, h);
+      }
+
+      // Apply scale
+      const scale = this.config.textureScale ?? 1.0;
+      this.texturePlane.scale.setScalar(scale);
+      this.texturePlane.visible = true;
+    } else {
+      // No texture — show core glow, hide texture plane
+      this.coreGlow.visible = true;
+      if (this.texturePlane) {
+        this.texturePlane.visible = false;
+      }
+    }
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    if (this.texturePlane && this.textureMaterial) {
+      this.textureMaterial.opacity = transform.opacity;
+      // Skip position/rotation when 'fixed' mode — handled by applyFixedMotion in update()
+      if ((this.config.textureMotion ?? 'none') !== 'fixed') {
+        this.texturePlane.rotation.z = transform.rotation;
+        this.texturePlane.position.x = transform.offsetX * 2;
+        // Z not Y — the galaxy plane is horizontal so Z maps to visual "up/down"
+        this.texturePlane.position.z = transform.offsetY * 2;
+      }
+      // Motion scale (e.g. bounce squash) applied to mesh
+      if (transform.scale !== 1) {
+        this.texturePlane.scale.multiplyScalar(transform.scale);
+      }
+    }
   }
 
   dispose(): void {
@@ -157,6 +238,11 @@ export class GalaxyScene {
     this.material.dispose();
     this.coreGlow.geometry.dispose();
     this.coreMaterial.dispose();
+    if (this.texturePlane) {
+      this.scene.remove(this.texturePlane);
+      this.texturePlane.geometry.dispose();
+      this.textureMaterial?.dispose();
+    }
   }
 }
 
@@ -166,6 +252,7 @@ const METADATA: SceneRegistration = {
   description: 'Spiral galaxy with dust lanes',
   category: 'cosmic',
   audioDescription: 'Bass spreads spiral arms, mids control rotation speed, highs brighten stars',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

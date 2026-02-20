@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
-const FRAGMENT_SHADER = `
+const FRAGMENT_SHADER =
+  TEXTURE_UNIFORMS +
+  TEXTURE_SAMPLE_FN +
+  `
   uniform float uTime;
   uniform float uBass;
   uniform float uMid;
@@ -12,8 +21,6 @@ const FRAGMENT_SHADER = `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
   varying vec2 vUv;
 
   float hash(vec2 p) {
@@ -72,8 +79,8 @@ const FRAGMENT_SHADER = `
     color += uAccent * centerGlow;
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -111,8 +118,7 @@ export class TunnelScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -139,12 +145,19 @@ export class TunnelScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -160,6 +173,8 @@ const METADATA: SceneRegistration = {
   description: 'Infinite fly-through tunnel along a spline',
   category: 'immersive',
   audioDescription: 'Bass distorts tunnel walls, mids control fly speed, highs shift wall texture',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
+  cameraHint: 'small-plane',
   params: [],
 };
 

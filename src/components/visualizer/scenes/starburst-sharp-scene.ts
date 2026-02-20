@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import type { SceneRegistration, SceneUserData } from './types';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Sharp Scene
@@ -13,9 +13,11 @@ import { computeAnimatedOpacity } from './starburst-utils';
  */
 
 const BURST_VERTEX = `
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
   void main() {
-    vUv = uv;
+    // World-space direction: pattern center is fixed in world space so it
+    // slides on-screen when the camera orbits (unlike view-space locking).
+    vWorldDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -33,10 +35,15 @@ const BURST_FRAGMENT = `
   uniform vec3 uBackground;
   uniform float uOffsetX;
   uniform float uOffsetY;
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, uOffsetY * 0.3);
+    vec3 dir = normalize(vWorldDir);
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    vec2 center = vec2(lon, lat) / 3.14159 * 3.0;
+    center -= vec2(uOffsetX * 0.3, uOffsetY * 0.3);
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -47,7 +54,6 @@ const BURST_FRAGMENT = `
     // Many sharp rays — step function for hard alternating bands
     float rayCount = 24.0;
     float stripe = sin(rayAngle * rayCount);
-    // Sharpen the sine into hard bands
     float sharpRay = smoothstep(-0.1, 0.1, stripe);
 
     // Secondary layer: thinner accent rays between main bands
@@ -58,31 +64,23 @@ const BURST_FRAGMENT = `
     float bassPulse = 1.0 + uBass * uReactivity * 0.5;
     float highEdge = 1.0 + uHigh * uReactivity * 0.4;
 
-    // Radial: rays extend outward, hollow center
-    float outerFade = 1.0 - smoothstep(0.12 * bassPulse, 0.7, dist);
+    // Hollow center only — no outer fade so rays fill the entire sphere
     float innerFade = smoothstep(0.0, 0.1 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
+    float falloff = innerFade;
 
     // Color: alternate between primary and secondary in bands
     vec3 bandColor = mix(uSecondary, uPrimary, sharpRay);
     vec3 accentColor = uAccent * accentRay * 0.3;
 
-    float intensity = falloff * highEdge;
-
-    // Composition
-    vec3 color = uBackground;
-    color += bandColor * intensity * 0.7;
-    color += accentColor * falloff;
-
-    // Subtle darkening at center so texture stands out
+    // Hollow center dimming — applied only to ray contribution
     float centerDim = smoothstep(0.0, 0.08, dist);
-    color *= 0.3 + centerDim * 0.7;
 
-    // Vignette
-    float vignette = 1.0 - smoothstep(0.35, 0.75, dist);
-    color *= 0.6 + vignette * 0.4;
+    // Combine ray contribution (vignette + centerDim only affect rays, never background)
+    float rayIntensity = falloff * highEdge * centerDim;
+    vec3 rays = bandColor * rayIntensity * 0.7 + accentColor * falloff * centerDim;
 
-    gl_FragColor = vec4(color, 1.0);
+    // Background always at full brightness; rays add on top
+    gl_FragColor = vec4(uBackground + rays, 1.0);
   }
 `;
 
@@ -117,15 +115,7 @@ const LOGO_FRAGMENT = `
       tex.rgb *= breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
-      vec2 center = vUv - 0.5;
-      float dist = length(center);
-      float pulse = 1.0 + uBass * uReactivity * 0.15;
-      float orb = 1.0 - smoothstep(0.0, 0.3 * pulse, dist);
-      float ring = smoothstep(0.2, 0.25, dist) * (1.0 - smoothstep(0.25, 0.3, dist));
-      float shimmer = sin(atan(center.y, center.x) * 12.0 + uTime * uSpeed * 2.5) * 0.5 + 0.5;
-      vec3 color = mix(uPrimary, uAccent, shimmer * 0.5);
-      float alpha = orb * 0.9 + ring * 0.6;
-      gl_FragColor = vec4(color * (orb + ring * 0.5), alpha);
+      discard;
     }
   }
 `;
@@ -137,16 +127,18 @@ export class StarburstSharpScene {
   private logoMaterial: THREE.ShaderMaterial;
   private clock: THREE.Clock;
   private config: VisualizerConfig;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     config: VisualizerConfig
   ) {
     this.config = config;
+    this.camera = (scene.userData as SceneUserData).camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    const burstGeo = new THREE.SphereGeometry(50, 32, 16);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -164,11 +156,11 @@ export class StarburstSharpScene {
         uOffsetX: { value: config.patternOffsetX ?? 0 },
         uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
+      side: THREE.BackSide,
       depthWrite: false,
     });
 
     this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
-    this.burstMesh.position.z = -2;
     this.scene.add(this.burstMesh);
 
     const logoGeo = new THREE.PlaneGeometry(3, 3);
@@ -220,9 +212,21 @@ export class StarburstSharpScene {
     this.logoMesh.scale.setScalar(breathe);
 
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0;
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -264,7 +268,8 @@ export class StarburstSharpScene {
     if (
       config.textureScale !== undefined ||
       config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined
+      config.textureAnimation !== undefined ||
+      config.textureMotion !== undefined
     ) {
       this.config = { ...this.config, ...config };
     }
@@ -301,7 +306,14 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass extends ray reach, highs sharpen band edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
+  cameraHint: 'centered',
 };
 
 registerScene(

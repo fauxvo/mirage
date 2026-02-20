@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class ParticleScene {
   private particles: THREE.Points;
@@ -60,6 +60,7 @@ export class ParticleScene {
 
     this.material = new THREE.PointsMaterial({
       size: 0.05,
+      sizeAttenuation: true,
       transparent: true,
       opacity: 0.8,
       blending: THREE.AdditiveBlending,
@@ -142,11 +143,37 @@ export class ParticleScene {
       this.particles.geometry.attributes.color.needsUpdate = true;
       this.config = { ...this.config, ...config };
     }
+    if (config.textureScale !== undefined) {
+      this.config = { ...this.config, ...config };
+      if (this.material.map) {
+        this.material.size = ParticleScene.BASE_POINT_SIZE * config.textureScale;
+      }
+    }
   }
 
+  private static BASE_POINT_SIZE = 0.05;
+
   setTexture(texture: THREE.Texture | null): void {
+    if (texture) {
+      // For point sprites, textureScale controls particle size (not UV repeat)
+      this.material.size = ParticleScene.BASE_POINT_SIZE * (this.config.textureScale ?? 1.0);
+      this.material.opacity = this.config.textureOpacity ?? 0.8;
+      this.material.transparent = true;
+    } else {
+      this.material.size = ParticleScene.BASE_POINT_SIZE;
+    }
     this.material.map = texture;
     this.material.needsUpdate = true;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    this.material.opacity = transform.opacity;
+    this.material.transparent = true;
+    if (this.material.map) {
+      this.material.map.rotation = transform.rotation;
+      this.material.map.center.set(0.5, 0.5);
+      this.material.map.offset.set(transform.offsetX, transform.offsetY);
+    }
   }
 
   dispose(): void {
@@ -162,6 +189,7 @@ const METADATA: SceneRegistration = {
   description: 'Dynamic particle field with orbital rotation',
   category: 'cosmic',
   audioDescription: 'Bass pulses expansion, mids control orbit speed, highs boost brightness',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

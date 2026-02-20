@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -26,6 +32,8 @@ const VERTEX_SHADER = `
 `;
 
 const FRAGMENT_SHADER = `
+${TEXTURE_UNIFORMS}
+${TEXTURE_SAMPLE_FN}
   uniform float uTime;
   uniform float uMid;
   uniform float uHigh;
@@ -33,8 +41,6 @@ const FRAGMENT_SHADER = `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
   varying vec2 vUv;
   varying vec3 vPosition;
 
@@ -88,8 +94,8 @@ const FRAGMENT_SHADER = `
     color *= 1.2;
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -121,8 +127,7 @@ export class LavaScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -147,6 +152,10 @@ export class LavaScene {
     this.material.uniforms.uHasTexture.value = texture !== null;
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
+  }
+
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
@@ -155,6 +164,9 @@ export class LavaScene {
     }
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
+    }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
     }
     this.config = { ...this.config, ...config };
   }
@@ -173,6 +185,7 @@ const METADATA: SceneRegistration = {
   category: 'organic',
   audioDescription:
     'Bass drives turbulence intensity, mids shift heat color, highs crack the surface',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [],
 };
 

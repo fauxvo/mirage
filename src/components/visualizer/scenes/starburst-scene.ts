@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import type { SceneRegistration, SceneUserData } from './types';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Scene (3D Sphere)
@@ -72,11 +72,9 @@ const BURST_FRAGMENT = `
     float midBright = 1.0 + uMid * uReactivity * 0.4;
     float highSharp = 1.0 + uHigh * uReactivity * 0.3;
 
-    // Radial falloff — rays fade towards the sides/back of the sphere
-    // Hollow center: rays start fading IN from the middle
-    float outerFade = 1.0 - smoothstep(0.15 * bassPulse, 0.55 * bassPulse, dist);
+    // Hollow center only — no outer fade so rays fill the entire sphere
     float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
+    float falloff = innerFade;
 
     // Combine rays with falloff
     float rayIntensity = rays * falloff * highSharp * midBright;
@@ -86,15 +84,8 @@ const BURST_FRAGMENT = `
     vec3 rayColor = mix(uPrimary, uSecondary, dist * 2.0);
     rayColor = mix(rayColor, uAccent, rays * 0.3);
 
-    // Final composition — background always fills, never black
-    vec3 color = uBackground;
-    color += rayColor * rayIntensity * 0.8;
-
-    // Subtle vignette based on spherical distance from front
-    float vignette = 1.0 - smoothstep(0.3, 0.75, dist);
-    color *= 0.6 + vignette * 0.4;
-
-    gl_FragColor = vec4(color, 1.0);
+    // Background always at full brightness; rays add on top
+    gl_FragColor = vec4(uBackground + rayColor * rayIntensity * 0.8, 1.0);
   }
 `;
 
@@ -136,20 +127,7 @@ const LOGO_FRAGMENT = `
       tex.rgb *= breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
-      // Placeholder: glowing orb
-      vec2 center = vUv - 0.5;
-      float dist = length(center);
-      float pulse = 1.0 + uBass * uReactivity * 0.2;
-
-      float orb = 1.0 - smoothstep(0.0, 0.35 * pulse, dist);
-      float ring = smoothstep(0.25, 0.3, dist) * (1.0 - smoothstep(0.3, 0.35, dist));
-
-      float shimmer = sin(atan(center.y, center.x) * 8.0 + uTime * uSpeed * 2.0) * 0.5 + 0.5;
-
-      vec3 color = mix(uPrimary, uAccent, shimmer * 0.5);
-      float alpha = orb * 0.9 + ring * 0.6;
-
-      gl_FragColor = vec4(color * (orb + ring * 0.5), alpha);
+      discard;
     }
   }
 `;
@@ -161,18 +139,20 @@ export class StarburstScene {
   private logoMaterial: THREE.ShaderMaterial;
   private clock: THREE.Clock;
   private config: VisualizerConfig;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     config: VisualizerConfig
   ) {
     this.config = config;
+    this.camera = (scene.userData as SceneUserData).camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
     // Starburst background — sphere rendered from inside so it wraps around
     // the camera completely. No black edges regardless of camera angle.
-    const burstGeo = new THREE.SphereGeometry(50, 64, 32);
+    const burstGeo = new THREE.SphereGeometry(50, 32, 16);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -250,11 +230,23 @@ export class StarburstScene {
     const breathe = scale * (1.0 + bass * reactivity * 0.05);
     this.logoMesh.scale.setScalar(breathe);
 
-    // Horizontal offset — shift logo mesh to follow burst centre
+    // Pattern offset — shift logo mesh to follow burst centre
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0; // scale to world units
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -297,7 +289,8 @@ export class StarburstScene {
     if (
       config.textureScale !== undefined ||
       config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined
+      config.textureAnimation !== undefined ||
+      config.textureMotion !== undefined
     ) {
       this.config = { ...this.config, ...config };
     }
@@ -334,7 +327,14 @@ const METADATA: SceneRegistration = {
   category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
+  cameraHint: 'centered',
 };
 
 registerScene('starburst', (scene, config) => new StarburstScene(scene, config), METADATA);

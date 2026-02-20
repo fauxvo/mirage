@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -11,7 +17,10 @@ const VERTEX_SHADER = `
   }
 `;
 
-const FRAGMENT_SHADER = `
+const FRAGMENT_SHADER =
+  TEXTURE_UNIFORMS +
+  TEXTURE_SAMPLE_FN +
+  `
   uniform float uTime;
   uniform float uBass;
   uniform float uMid;
@@ -21,8 +30,6 @@ const FRAGMENT_SHADER = `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
   varying vec2 vUv;
 
   #define PI 3.14159265359
@@ -82,8 +89,8 @@ const FRAGMENT_SHADER = `
     color *= vignette;
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -116,8 +123,7 @@ export class KaleidoscopeScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
     });
 
@@ -147,12 +153,19 @@ export class KaleidoscopeScene {
     if (config.symmetry !== undefined) {
       this.material.uniforms.uSymmetry.value = config.symmetry;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -168,6 +181,8 @@ const METADATA: SceneRegistration = {
   description: 'Mirrored geometric patterns with symmetry folds',
   category: 'geometric',
   audioDescription: 'Bass zooms pattern, mids rotate the view, highs split colors',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
+  cameraHint: 'small-plane',
   params: [
     {
       key: 'symmetry',

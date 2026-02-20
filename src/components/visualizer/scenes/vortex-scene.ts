@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
+import type { SceneRegistration, TextureTransform } from './types';
 
 export class VortexScene {
   private particles: THREE.Points;
@@ -20,6 +26,8 @@ export class VortexScene {
     uniform float uMid;
     uniform float uHigh;
     uniform float uAnimSpeed;
+    uniform float uTextureScale;
+    uniform bool uHasTexture;
     varying float vRadius;
     varying float vBrightness;
 
@@ -41,17 +49,19 @@ export class VortexScene {
 
       vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
       float size = (1.0 - r / 6.0) * 3.0 + 1.0;
+      // When texture is loaded, textureScale controls point size
+      if (uHasTexture) size *= uTextureScale;
       gl_PointSize = size * (200.0 / -mvPos.z);
       gl_Position = projectionMatrix * mvPos;
     }
   `;
 
   private static FRAGMENT = `
+    ${TEXTURE_UNIFORMS}
+    ${TEXTURE_SAMPLE_FN}
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
-    uniform sampler2D uTexture;
-    uniform bool uHasTexture;
     varying float vRadius;
     varying float vBrightness;
 
@@ -59,10 +69,10 @@ export class VortexScene {
       float d = length(gl_PointCoord - 0.5);
 
       float alpha;
-      vec4 texColor = vec4(1.0);
+      vec4 texSample = vec4(1.0);
       if (uHasTexture) {
-        texColor = texture2D(uTexture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        alpha = texColor.a * 0.8;
+        texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        alpha = texSample.a;
         if (alpha < 0.01) discard;
       } else {
         if (d > 0.5) discard;
@@ -74,7 +84,7 @@ export class VortexScene {
       color = mix(color, uSecondary, smoothstep(0.3, 0.8, t));
       color *= vBrightness;
 
-      if (uHasTexture) color *= texColor.rgb;
+      if (uHasTexture) color *= texSample.rgb;
 
       gl_FragColor = vec4(color, alpha);
     }
@@ -121,8 +131,7 @@ export class VortexScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -167,12 +176,19 @@ export class VortexScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uAnimSpeed.value = config.animationSpeed;
     }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+  }
+
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
   }
 
   dispose(): void {
@@ -191,6 +207,7 @@ const METADATA: SceneRegistration = {
   description: 'Spiral vortex pull with central glow sphere',
   category: 'immersive',
   audioDescription: 'Bass tightens the spiral, mids control rotation speed, highs glow particles',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',

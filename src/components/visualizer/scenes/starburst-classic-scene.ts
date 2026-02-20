@@ -1,23 +1,23 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity } from './starburst-utils';
+import type { SceneRegistration, SceneUserData } from './types';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Classic Scene
  *
- * The original flat-plane starburst. A centred custom texture floating
- * in front of radiating starburst rays on a 2D plane. Best with a
- * static camera — camera movement may reveal black edges.
+ * The original starburst with ray pattern centre fixed in world space.
+ * Sphere background ensures full coverage — no black edges. When the
+ * camera orbits, the ray centre slides naturally across the screen.
  */
 
 // --- Starburst background (fullscreen quad with ray shader) ---
 
 const BURST_VERTEX = `
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
   void main() {
-    vUv = uv;
+    vWorldDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -36,10 +36,15 @@ const BURST_FRAGMENT = `
   uniform float uRayCount;
   uniform float uOffsetX;
   uniform float uOffsetY;
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, uOffsetY * 0.3);
+    vec3 dir = normalize(vWorldDir);
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    vec2 center = vec2(lon, lat) / 3.14159 * 3.0;
+    center -= vec2(uOffsetX * 0.3, uOffsetY * 0.3);
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -58,27 +63,25 @@ const BURST_FRAGMENT = `
     float midBright = 1.0 + uMid * uReactivity * 0.4;
     float highSharp = 1.0 + uHigh * uReactivity * 0.3;
 
-    // Radial falloff — rays fade towards edges, pulse with bass
-    // Hollow center: rays start fading IN from the middle
-    float outerFade = 1.0 - smoothstep(0.15 * bassPulse, 0.55 * bassPulse, dist);
+    // Hollow center so texture is visible, but NO outer falloff — rays go to edges
     float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
 
-    // Combine rays with falloff
-    float rayIntensity = rays * falloff * highSharp * midBright;
-    rayIntensity = pow(rayIntensity, 1.5); // sharpen
+    // Combine: no outer fade means rays fill the entire screen
+    float rayIntensity = rays * innerFade * highSharp * midBright;
+    rayIntensity = pow(rayIntensity, 1.5);
 
-    // Color gradient: primary at center, secondary at mid, accent at tips
-    vec3 rayColor = mix(uPrimary, uSecondary, dist * 2.0);
+    // Color gradient: primary near centre, secondary at mid, accent at tips
+    vec3 rayColor = mix(uPrimary, uSecondary, clamp(dist * 1.5, 0.0, 1.0));
     rayColor = mix(rayColor, uAccent, rays * 0.3);
 
-    // Final composition — no additive center glow
+    // Composition: background + rays — background is ALWAYS the palette colour, never black
     vec3 color = uBackground;
-    color += rayColor * rayIntensity * 0.8;
+    color = mix(color, rayColor, rayIntensity * 0.75);
 
-    // Subtle vignette
-    float vignette = 1.0 - smoothstep(0.3, 0.75, dist);
-    color *= 0.6 + vignette * 0.4;
+    // Gentle distance-based colour enrichment so edges stay vibrant
+    vec3 edgeTint = mix(uSecondary, uAccent, sin(angle * 2.0 + uTime * uSpeed * 0.1) * 0.5 + 0.5);
+    float edgeBlend = smoothstep(0.2, 0.7, dist) * 0.3;
+    color = mix(color, edgeTint, edgeBlend * (1.0 - rayIntensity * 0.5));
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -122,20 +125,7 @@ const LOGO_FRAGMENT = `
       tex.rgb *= breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
-      // Placeholder: glowing orb
-      vec2 center = vUv - 0.5;
-      float dist = length(center);
-      float pulse = 1.0 + uBass * uReactivity * 0.2;
-
-      float orb = 1.0 - smoothstep(0.0, 0.35 * pulse, dist);
-      float ring = smoothstep(0.25, 0.3, dist) * (1.0 - smoothstep(0.3, 0.35, dist));
-
-      float shimmer = sin(atan(center.y, center.x) * 8.0 + uTime * uSpeed * 2.0) * 0.5 + 0.5;
-
-      vec3 color = mix(uPrimary, uAccent, shimmer * 0.5);
-      float alpha = orb * 0.9 + ring * 0.6;
-
-      gl_FragColor = vec4(color * (orb + ring * 0.5), alpha);
+      discard;
     }
   }
 `;
@@ -147,17 +137,19 @@ export class StarburstClassicScene {
   private logoMaterial: THREE.ShaderMaterial;
   private clock: THREE.Clock;
   private config: VisualizerConfig;
+  private camera: THREE.Camera;
 
   constructor(
     private scene: THREE.Scene,
     config: VisualizerConfig
   ) {
     this.config = config;
+    this.camera = (scene.userData as SceneUserData).camera;
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    // Starburst background — oversized plane to guarantee full viewport coverage
-    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    // Starburst background — sphere rendered from inside for full coverage
+    const burstGeo = new THREE.SphereGeometry(50, 32, 16);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -176,11 +168,11 @@ export class StarburstClassicScene {
         uOffsetX: { value: config.patternOffsetX ?? 0 },
         uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
+      side: THREE.BackSide,
       depthWrite: false,
     });
 
     this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
-    this.burstMesh.position.z = -2;
     this.scene.add(this.burstMesh);
 
     // Centre logo/texture plane — in front of starburst
@@ -235,11 +227,23 @@ export class StarburstClassicScene {
     const breathe = scale * (1.0 + bass * reactivity * 0.05);
     this.logoMesh.scale.setScalar(breathe);
 
-    // Horizontal offset — shift logo mesh to follow burst centre
+    // Pattern offset — shift logo mesh to follow burst centre
     const offsetX = this.config.patternOffsetX ?? 0;
-    this.logoMesh.position.x = offsetX * 4.0; // scale to world units
     const offsetY = this.config.patternOffsetY ?? 0;
-    this.logoMesh.position.y = offsetY * 4.0;
+
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -282,7 +286,8 @@ export class StarburstClassicScene {
     if (
       config.textureScale !== undefined ||
       config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined
+      config.textureAnimation !== undefined ||
+      config.textureMotion !== undefined
     ) {
       this.config = { ...this.config, ...config };
     }
@@ -315,11 +320,18 @@ export class StarburstClassicScene {
 const METADATA: SceneRegistration = {
   id: 'starburst-classic',
   name: 'Starburst Classic',
-  description: 'Original flat-plane starburst — best with static camera',
+  description: 'Classic starburst — ray centre moves with camera orbit',
   category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'patternOffset'],
+  features: [
+    'textureScale',
+    'textureOpacity',
+    'textureAnimation',
+    'textureMotion',
+    'patternOffset',
+  ],
+  cameraHint: 'centered',
 };
 
 registerScene(

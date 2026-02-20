@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
-import type { SceneRegistration } from './types';
+import type { SceneRegistration, TextureTransform } from './types';
+import {
+  TEXTURE_UNIFORMS,
+  TEXTURE_SAMPLE_FN,
+  createTextureUniforms,
+  applyTextureTransform,
+} from './shader-chunks';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -29,7 +35,10 @@ const VERTEX_SHADER = `
   }
 `;
 
-const FRAGMENT_SHADER = `
+const FRAGMENT_SHADER =
+  TEXTURE_UNIFORMS +
+  TEXTURE_SAMPLE_FN +
+  `
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
@@ -37,8 +46,6 @@ const FRAGMENT_SHADER = `
   uniform float uMid;
   uniform float uHigh;
   uniform float uSpeed;
-  uniform sampler2D uTexture;
-  uniform bool uHasTexture;
   varying vec2 vUv;
   varying float vElevation;
 
@@ -56,8 +63,8 @@ const FRAGMENT_SHADER = `
     color += glow;
 
     if (uHasTexture) {
-      vec4 texColor = texture2D(uTexture, vUv);
-      color = mix(color, texColor.rgb, texColor.a * 0.5);
+      vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);
+      color = mix(color, tex.rgb, tex.a);
     }
 
     gl_FragColor = vec4(color, 0.9);
@@ -92,8 +99,7 @@ export class AuroraScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uTexture: { value: null },
-        uHasTexture: { value: false },
+        ...createTextureUniforms(config),
       },
       side: THREE.DoubleSide,
       transparent: true,
@@ -149,6 +155,10 @@ export class AuroraScene {
     this.material.uniforms.uHasTexture.value = texture !== null;
   }
 
+  setTextureTransform(transform: TextureTransform): void {
+    applyTextureTransform(this.material, transform);
+  }
+
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
@@ -164,6 +174,9 @@ export class AuroraScene {
     }
     if (config.particleDensity !== undefined) {
       this.config = { ...this.config, ...config };
+    }
+    if (config.textureScale !== undefined) {
+      this.material.uniforms.uTextureScale.value = config.textureScale;
     }
   }
 
@@ -183,6 +196,7 @@ const METADATA: SceneRegistration = {
   description: 'Flowing wave landscape with ambient particles',
   category: 'organic',
   audioDescription: 'Bass controls wave height, mids shift colors, highs add particle sparkle',
+  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
   params: [
     {
       key: 'particleDensity',
