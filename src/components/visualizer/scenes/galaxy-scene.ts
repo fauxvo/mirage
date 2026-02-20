@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, TextureTransform } from './types';
+import { applyFixedMotion } from './starburst-utils';
 
 export class GalaxyScene {
   private particles: THREE.Points;
@@ -120,7 +121,15 @@ export class GalaxyScene {
     if (this.texturePlane?.visible) {
       const texScale = (this.config.textureScale ?? 1.0) * (1 + bass * r * 0.08);
       this.texturePlane.scale.setScalar(texScale);
-      this.texturePlane.rotation.y = time * 0.1;
+
+      const motionMode = this.config.textureMotion ?? 'none';
+      if (motionMode === 'fixed') {
+        const offsetX = this.config.patternOffsetX ?? 0;
+        const offsetY = this.config.patternOffsetY ?? 0;
+        applyFixedMotion(this.texturePlane, this.scene, offsetX, offsetY);
+      } else {
+        this.texturePlane.rotation.y = time * 0.1;
+      }
     } else {
       this.coreGlow.scale.setScalar(coreScale);
       this.coreMaterial.opacity = 0.4 + bass * r * 0.4;
@@ -203,9 +212,12 @@ export class GalaxyScene {
   setTextureTransform(transform: TextureTransform): void {
     if (this.texturePlane && this.textureMaterial) {
       this.textureMaterial.opacity = transform.opacity;
-      this.texturePlane.rotation.z = transform.rotation;
-      this.texturePlane.position.x = transform.offsetX * 2;
-      this.texturePlane.position.z = transform.offsetY * 2;
+      // Skip position/rotation when 'fixed' mode — handled by applyFixedMotion in update()
+      if ((this.config.textureMotion ?? 'none') !== 'fixed') {
+        this.texturePlane.rotation.z = transform.rotation;
+        this.texturePlane.position.x = transform.offsetX * 2;
+        this.texturePlane.position.z = transform.offsetY * 2;
+      }
     }
   }
 
