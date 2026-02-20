@@ -2,22 +2,22 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity, computeTextureMotion } from './starburst-utils';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Classic Scene
  *
- * The original flat-plane starburst. A centred custom texture floating
- * in front of radiating starburst rays on a 2D plane. Best with a
- * static camera — camera movement may reveal black edges.
+ * The original starburst with ray pattern centre fixed in world space.
+ * Sphere background ensures full coverage — no black edges. When the
+ * camera orbits, the ray centre slides naturally across the screen.
  */
 
 // --- Starburst background (fullscreen quad with ray shader) ---
 
 const BURST_VERTEX = `
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
   void main() {
-    vUv = uv;
+    vWorldDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -36,10 +36,15 @@ const BURST_FRAGMENT = `
   uniform float uRayCount;
   uniform float uOffsetX;
   uniform float uOffsetY;
-  varying vec2 vUv;
+  varying vec3 vWorldDir;
 
   void main() {
-    vec2 center = vUv - 0.5 - vec2(uOffsetX * 0.3, uOffsetY * 0.3);
+    vec3 dir = normalize(vWorldDir);
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    vec2 center = vec2(lon, lat) / 3.14159 * 3.0;
+    center -= vec2(uOffsetX * 0.3, uOffsetY * 0.3);
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
@@ -154,8 +159,8 @@ export class StarburstClassicScene {
     this.clock = new THREE.Clock();
     const palette = config.colorPalette;
 
-    // Starburst background — oversized plane to guarantee full viewport coverage
-    const burstGeo = new THREE.PlaneGeometry(40, 40);
+    // Starburst background — sphere rendered from inside for full coverage
+    const burstGeo = new THREE.SphereGeometry(50, 64, 32);
     this.burstMaterial = new THREE.ShaderMaterial({
       vertexShader: BURST_VERTEX,
       fragmentShader: BURST_FRAGMENT,
@@ -174,11 +179,11 @@ export class StarburstClassicScene {
         uOffsetX: { value: config.patternOffsetX ?? 0 },
         uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
+      side: THREE.BackSide,
       depthWrite: false,
     });
 
     this.burstMesh = new THREE.Mesh(burstGeo, this.burstMaterial);
-    this.burstMesh.position.z = -2;
     this.scene.add(this.burstMesh);
 
     // Centre logo/texture plane — in front of starburst
@@ -237,17 +242,19 @@ export class StarburstClassicScene {
     const offsetX = this.config.patternOffsetX ?? 0;
     const offsetY = this.config.patternOffsetY ?? 0;
 
-    // Texture motion (spin, bounce, float, swing)
-    const motion = computeTextureMotion(
-      this.config.textureMotion ?? 'none',
-      time,
-      this.config.animationSpeed,
-      bass
-    );
-    this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
-    this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
-    this.logoMesh.rotation.z = motion.rotationZ;
-    if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.scene, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {
@@ -323,7 +330,7 @@ export class StarburstClassicScene {
 const METADATA: SceneRegistration = {
   id: 'starburst-classic',
   name: 'Starburst Classic',
-  description: 'Original flat-plane starburst — best with static camera',
+  description: 'Classic starburst — ray centre moves with camera orbit',
   category: 'immersive',
   audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
   params: [],

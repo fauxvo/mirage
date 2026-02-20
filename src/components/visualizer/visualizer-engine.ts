@@ -155,7 +155,7 @@ export class VisualizerEngine {
     this.sceneHandler?.setTexture?.(null);
   }
 
-  // Flat-plane shader scenes render on a single face — camera must be centered head-on
+  // Scenes that need a centred head-on camera (flat-plane shaders + sphere starbursts with logo)
   private static FLAT_PLANE_SCENES = new Set([
     'fractal',
     'kaleidoscope',
@@ -194,6 +194,9 @@ export class VisualizerEngine {
     }
 
     this.positionCamera();
+
+    // Expose camera to scene handlers (used by 'fixed' texture motion for billboarding)
+    this.scene.userData.camera = this.camera;
 
     this.sceneHandler = createScene(sceneType, this.scene, this.config);
 

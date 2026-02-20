@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
 
 /**
@@ -82,8 +83,39 @@ export function computeTextureMotion(
       const angle = Math.sin(time * speed * 0.8) * 0.3;
       return { ...none, rotationZ: angle };
     }
+    case 'fixed':
     case 'none':
     default:
       return none;
   }
+}
+
+// Reusable vectors to avoid per-frame allocations
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3();
+
+/**
+ * Billboard the logo mesh to always face the camera and apply offsets in
+ * camera-local space so the texture stays screen-centred during camera orbit.
+ * Requires `scene.userData.camera` to be set by the engine.
+ */
+export function applyFixedMotion(
+  logoMesh: THREE.Mesh,
+  scene: THREE.Scene,
+  offsetX: number,
+  offsetY: number
+): void {
+  const camera = scene.userData.camera as THREE.PerspectiveCamera | undefined;
+  if (!camera) return;
+
+  // Billboard: rotate plane to face camera
+  logoMesh.lookAt(camera.position);
+
+  // Position with offset in camera-local coordinates
+  _right.setFromMatrixColumn(camera.matrixWorld, 0);
+  _up.setFromMatrixColumn(camera.matrixWorld, 1);
+
+  logoMesh.position.set(0, 0, 0);
+  logoMesh.position.addScaledVector(_right, offsetX * 4.0);
+  logoMesh.position.addScaledVector(_up, offsetY * 4.0);
 }

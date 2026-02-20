@@ -34,7 +34,7 @@ export function SliderControl({ label, value, min, max, step, onChange }: Slider
 }
 
 export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
-export type TextureMotion = 'none' | 'spin' | 'bounce' | 'float' | 'swing';
+export type TextureMotion = 'none' | 'fixed' | 'spin' | 'bounce' | 'float' | 'swing';
 
 const TEXTURE_ANIMATIONS: { value: TextureAnimation; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Static opacity' },
@@ -82,6 +82,7 @@ export function TextureAnimationPicker({
 
 const TEXTURE_MOTIONS: { value: TextureMotion; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'No movement' },
+  { value: 'fixed', label: 'Fixed', description: 'Always faces camera during orbit' },
   { value: 'spin', label: 'Spin', description: 'Continuous rotation' },
   { value: 'bounce', label: 'Bounce', description: 'Vertical bounce with squash' },
   { value: 'float', label: 'Float', description: 'Gentle figure-8 drift' },

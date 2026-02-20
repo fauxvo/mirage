@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration } from './types';
-import { computeAnimatedOpacity, computeTextureMotion } from './starburst-utils';
+import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
 
 /**
  * Starburst Scene (3D Sphere)
@@ -72,11 +72,9 @@ const BURST_FRAGMENT = `
     float midBright = 1.0 + uMid * uReactivity * 0.4;
     float highSharp = 1.0 + uHigh * uReactivity * 0.3;
 
-    // Radial falloff — rays fade towards the sides/back of the sphere
-    // Hollow center: rays start fading IN from the middle
-    float outerFade = 1.0 - smoothstep(0.15 * bassPulse, 0.55 * bassPulse, dist);
+    // Hollow center only — no outer fade so rays fill the entire sphere
     float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
-    float falloff = outerFade * innerFade;
+    float falloff = innerFade;
 
     // Combine rays with falloff
     float rayIntensity = rays * falloff * highSharp * midBright;
@@ -86,15 +84,8 @@ const BURST_FRAGMENT = `
     vec3 rayColor = mix(uPrimary, uSecondary, dist * 2.0);
     rayColor = mix(rayColor, uAccent, rays * 0.3);
 
-    // Final composition — background always fills, never black
-    vec3 color = uBackground;
-    color += rayColor * rayIntensity * 0.8;
-
-    // Subtle vignette based on spherical distance from front
-    float vignette = 1.0 - smoothstep(0.3, 0.75, dist);
-    color *= 0.6 + vignette * 0.4;
-
-    gl_FragColor = vec4(color, 1.0);
+    // Background always at full brightness; rays add on top
+    gl_FragColor = vec4(uBackground + rayColor * rayIntensity * 0.8, 1.0);
   }
 `;
 
@@ -254,17 +245,19 @@ export class StarburstScene {
     const offsetX = this.config.patternOffsetX ?? 0;
     const offsetY = this.config.patternOffsetY ?? 0;
 
-    // Texture motion (spin, bounce, float, swing)
-    const motion = computeTextureMotion(
-      this.config.textureMotion ?? 'none',
-      time,
-      this.config.animationSpeed,
-      bass
-    );
-    this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
-    this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
-    this.logoMesh.rotation.z = motion.rotationZ;
-    if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    // Texture motion
+    const motionMode = this.config.textureMotion ?? 'none';
+    if (motionMode === 'fixed') {
+      applyFixedMotion(this.logoMesh, this.scene, offsetX, offsetY);
+    } else {
+      this.logoMesh.rotation.x = 0;
+      this.logoMesh.rotation.y = 0;
+      const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
+      this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
+      this.logoMesh.rotation.z = motion.rotationZ;
+      if (motion.extraScale !== 1) this.logoMesh.scale.multiplyScalar(motion.extraScale);
+    }
   }
 
   setTexture(texture: THREE.Texture | null): void {

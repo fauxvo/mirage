@@ -290,6 +290,13 @@ export function VisualizerSettingsPanel({
         <h3 className="text-white font-semibold text-sm">Visualizer Settings</h3>
         <div className="flex items-center gap-1">
           <button
+            onClick={() => window.location.reload()}
+            className="p-1 text-white/50 hover:text-white rounded transition-colors"
+            title="Refresh visualizer"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+          <button
             onClick={onShowHelp}
             className="p-1 text-white/50 hover:text-white rounded transition-colors"
             title="Help"

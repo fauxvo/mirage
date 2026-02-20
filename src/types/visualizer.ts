@@ -3,7 +3,7 @@
 export type VisualizerScene = string;
 export type CameraMovement = 'static' | 'orbit' | 'drift' | 'pulse';
 export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
-export type TextureMotion = 'none' | 'spin' | 'bounce' | 'float' | 'swing';
+export type TextureMotion = 'none' | 'fixed' | 'spin' | 'bounce' | 'float' | 'swing';
 
 export interface VisualizerColorPalette {
   primary: string;
