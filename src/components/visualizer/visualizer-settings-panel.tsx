@@ -291,14 +291,14 @@ export function VisualizerSettingsPanel({
         <div className="flex items-center gap-1">
           <button
             onClick={() => window.location.reload()}
-            className="p-1 text-white/50 hover:text-white rounded transition-colors"
+            className="p-1 text-emerald-400/70 hover:text-emerald-400 rounded transition-colors"
             title="Refresh visualizer"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button
             onClick={onShowHelp}
-            className="p-1 text-white/50 hover:text-white rounded transition-colors"
+            className="p-1 text-orange-400/70 hover:text-orange-400 rounded transition-colors"
             title="Help"
           >
             <HelpCircle className="w-4 h-4" />
@@ -368,7 +368,7 @@ export function VisualizerSettingsPanel({
             {/* Share URL — only shown for saved sets */}
             {setId && (
               <section>
-                <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                   Share Set
                 </label>
                 <div className="flex gap-2">
@@ -392,7 +392,7 @@ export function VisualizerSettingsPanel({
 
             {/* Scene Type - Category Grid */}
             <section>
-              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                 Scene Type
               </label>
               {currentSceneMeta && (
@@ -453,7 +453,7 @@ export function VisualizerSettingsPanel({
 
             {/* Color Presets */}
             <section>
-              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                 Color Preset
               </label>
               <div className="max-h-60 overflow-y-auto pr-0.5">
@@ -582,7 +582,7 @@ export function VisualizerSettingsPanel({
             <section>
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                  <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
                     Audio Input
                   </label>
                   <p className="text-white/30 text-[10px] mt-0.5">
@@ -608,7 +608,7 @@ export function VisualizerSettingsPanel({
 
             {/* Camera Movement */}
             <section>
-              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                 Camera Movement
               </label>
               {(() => {
@@ -738,7 +738,7 @@ export function VisualizerSettingsPanel({
                   return (
                     <section key={param.key}>
                       <div className="flex items-center justify-between">
-                        <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                        <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
                           {param.label}
                         </label>
                         <button
@@ -786,7 +786,7 @@ export function VisualizerSettingsPanel({
                 return (
                   <section key={param.key}>
                     <div className="flex items-center justify-between">
-                      <label className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                      <label className="text-teal-300/50 text-xs font-medium uppercase tracking-wider">
                         {param.label}
                       </label>
                       <button
@@ -816,7 +816,7 @@ export function VisualizerSettingsPanel({
                   (config.sceneParams?.[param.key] as string) ?? (param.default as string);
                 return (
                   <section key={param.key}>
-                    <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+                    <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                       {param.label}
                     </label>
                     <div className="flex flex-wrap gap-1">
@@ -847,7 +847,7 @@ export function VisualizerSettingsPanel({
 
             {/* Custom Texture */}
             <section>
-              <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+              <label className="block text-teal-300/50 text-xs font-medium mb-2 uppercase tracking-wider">
                 Custom Texture
               </label>
               <input

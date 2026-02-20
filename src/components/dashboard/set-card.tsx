@@ -109,7 +109,7 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
             {set.isPublic && (
               <button
                 onClick={handleCopyLink}
-                className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded text-white/30 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
                 title="Copy share link"
               >
                 {copied ? (
@@ -121,21 +121,21 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
             )}
             <button
               onClick={() => setShowEditModal(true)}
-              className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
+              className="p-1.5 rounded text-white/30 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
               title="Edit set"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <Link
               href={`/v/${set.id}`}
-              className="p-1.5 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.06] transition-colors"
+              className="p-1.5 rounded text-orange-400/70 hover:text-orange-400 hover:bg-orange-400/10 transition-colors"
               title="Open in visualizer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
             <button
               onClick={() => onDeleteClick(set)}
-              className="p-1.5 rounded text-white/20 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+              className="p-1.5 rounded text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors"
               title="Delete set"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -160,14 +160,14 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
 
       {/* Expanded cues list */}
       {expanded && (
-        <div className="border-t border-white/[0.04]">
+        <div className="border-t border-white/[0.04] px-4 py-3">
           {loadingCues ? (
-            <div className="px-4 py-4 flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 py-2">
               <div className="w-2.5 h-2.5 rounded-full bg-white/10 animate-pulse" />
               <span className="text-[10px] text-white/20">Loading cues...</span>
             </div>
           ) : cueError ? (
-            <div className="px-4 py-4 text-center">
+            <div className="py-2 text-center">
               <p className="text-xs text-red-400/70">Failed to load cues</p>
               <button
                 onClick={() => {
@@ -182,7 +182,7 @@ export function SetCard({ set, onDeleteClick, onUpdate }: SetCardProps) {
           ) : cues && cues.length > 0 ? (
             <CuesList setId={set.id} cues={cues} onCuesChange={setCues} />
           ) : (
-            <div className="px-4 py-4 text-center text-xs text-white/20">No cues found.</div>
+            <div className="py-2 text-center text-xs text-white/20">No cues found.</div>
           )}
         </div>
       )}
