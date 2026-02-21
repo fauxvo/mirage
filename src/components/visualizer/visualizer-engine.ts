@@ -219,7 +219,13 @@ export class VisualizerEngine {
     // IMPORTANT: Set camera before createScene — scenes read it from userData in their constructor
     (this.scene.userData as SceneUserData).camera = this.camera;
 
-    this.sceneHandler = createScene(sceneType, this.scene, this.config);
+    // Pass effective speed (base * multiplier) to scene constructor
+    const mul = this.config.intensityMultiplier ?? 1;
+    const effectiveConfig =
+      mul !== 1
+        ? { ...this.config, animationSpeed: this.config.animationSpeed * mul }
+        : this.config;
+    this.sceneHandler = createScene(sceneType, this.scene, effectiveConfig);
 
     // Pass cached texture to new scene
     if (this.customTexture && this.sceneHandler) {
@@ -315,10 +321,46 @@ export class VisualizerEngine {
 
   private updateCamera(audio: { bass: number; mid: number; high: number }): void {
     const hint = this.getCameraHint();
-    // Flat-plane and ground-plane scenes: camera movement would reveal edges
-    if (hint === 'small-plane' || hint === 'low-angle') return;
+    // Flat fullscreen-quad scenes: any camera movement would break framing
+    if (hint === 'small-plane') return;
 
     const speed = this.config.animationSpeed;
+
+    // Low-angle (ground-plane) scenes: allow constrained camera movement
+    // that stays within the backdrop coverage area
+    if (hint === 'low-angle') {
+      switch (this.config.cameraMovement) {
+        case 'orbit': {
+          this.cameraAngle = (this.cameraAngle + 0.0015 * speed) % (Math.PI * 2);
+          // Gentle horizontal sway ±15° (vs ±50° for 3D scenes)
+          const swing = Math.sin(this.cameraAngle) * ((15 * Math.PI) / 180);
+          const baseY = this.camera.position.y;
+          const baseZ = this.camera.position.z;
+          this.camera.position.x = Math.sin(swing) * baseZ * 0.25;
+          this.camera.position.y = baseY + Math.sin(this.cameraAngle * 0.5) * 0.3;
+          this.camera.lookAt(0, 0, 0);
+          break;
+        }
+        case 'drift': {
+          this.cameraAngle = (this.cameraAngle + 0.001 * speed) % (Math.PI * 2);
+          const baseY = this.camera.position.y;
+          this.camera.position.x = Math.sin(this.cameraAngle * 0.5) * 1.2;
+          this.camera.position.y = baseY + Math.sin(this.cameraAngle * 0.3) * 0.3;
+          this.camera.lookAt(0, 0, 0);
+          break;
+        }
+        case 'pulse': {
+          const baseZ = this.camera.position.z;
+          const pulseZ = baseZ + audio.bass * this.config.audioReactivity * -0.8;
+          this.camera.position.z += (pulseZ - this.camera.position.z) * 0.05;
+          break;
+        }
+        case 'static':
+        default:
+          break;
+      }
+      return;
+    }
 
     switch (this.config.cameraMovement) {
       case 'orbit': {
@@ -350,9 +392,13 @@ export class VisualizerEngine {
   private animate = () => {
     this.animationFrameId = requestAnimationFrame(this.animate);
 
+    const mul = this.config.intensityMultiplier ?? 1;
     const audio = this.getAudioData();
-    this.sceneHandler?.update(audio.bass, audio.mid, audio.high);
-    this.updateCamera(audio);
+    const bass = Math.min(1, audio.bass * mul);
+    const mid = Math.min(1, audio.mid * mul);
+    const high = Math.min(1, audio.high * mul);
+    this.sceneHandler?.update(bass, mid, high);
+    this.updateCamera({ bass, mid, high });
 
     // Engine-driven texture animation & motion for scenes that implement setTextureTransform
     if (this.sceneHandler?.setTextureTransform && this.customTexture) {
@@ -361,10 +407,10 @@ export class VisualizerEngine {
       const baseOpacity = this.config.textureOpacity ?? 1.0;
 
       const animMode = this.config.textureAnimation ?? 'none';
-      const animMul = computeAnimatedOpacity(animMode, time, speed, audio.bass);
+      const animMul = computeAnimatedOpacity(animMode, time, speed, bass);
 
       const motionMode = this.config.textureMotion ?? 'none';
-      const motion = computeTextureMotion(motionMode, time, speed, audio.bass);
+      const motion = computeTextureMotion(motionMode, time, speed, bass);
 
       this.sceneHandler.setTextureTransform({
         opacity: baseOpacity * animMul,
@@ -376,6 +422,9 @@ export class VisualizerEngine {
         tintColor: { ...this.resolveTintColor() },
       });
     }
+
+    // Dynamic bloom: base intensity * multiplier
+    this.bloomPass.strength = (this.config.bloomIntensity ?? 1.5) * mul;
 
     this.composer.render();
   };
@@ -414,9 +463,17 @@ export class VisualizerEngine {
       this.sceneHandler?.updateConfig(newConfig);
     }
 
-    // Update bloom
+    // Update bloom (animate loop handles multiplier dynamically)
     if (newConfig.bloomIntensity !== undefined) {
-      this.bloomPass.strength = newConfig.bloomIntensity;
+      const mul = this.config.intensityMultiplier ?? 1;
+      this.bloomPass.strength = newConfig.bloomIntensity * mul;
+    }
+
+    // When multiplier or speed changes, push effective speed to scene
+    if (newConfig.intensityMultiplier !== undefined || newConfig.animationSpeed !== undefined) {
+      const mul = this.config.intensityMultiplier ?? 1;
+      const effectiveSpeed = this.config.animationSpeed * mul;
+      this.sceneHandler?.updateConfig({ animationSpeed: effectiveSpeed });
     }
 
     // Update background

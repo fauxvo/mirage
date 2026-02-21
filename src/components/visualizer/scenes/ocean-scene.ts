@@ -127,8 +127,7 @@ export class OceanScene {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.rotation.x = -Math.PI * 0.45;
-    this.mesh.position.y = -1.5;
+    this.applyViewAngle(Number(config.sceneParams?.viewAngle ?? 0.5));
     this.scene.add(this.mesh);
   }
 
@@ -150,6 +149,15 @@ export class OceanScene {
     applyTextureTransform(this.material, transform);
   }
 
+  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
+  private applyViewAngle(viewAngle: number): void {
+    // 0 = top-down (-PI/2), 0.5 = default angled (-PI*0.45), 1 = near-horizon (-PI*0.15)
+    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
+    const yOffset = -1.5 + viewAngle * 1.0; // raise mesh as angle drops toward horizon
+    this.mesh.rotation.x = tilt;
+    this.mesh.position.y = yOffset;
+  }
+
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
@@ -161,6 +169,9 @@ export class OceanScene {
     }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.sceneParams?.viewAngle !== undefined) {
+      this.applyViewAngle(Number(config.sceneParams.viewAngle));
     }
     this.config = { ...this.config, ...config };
   }
@@ -179,7 +190,17 @@ const METADATA: SceneRegistration = {
   category: 'organic',
   audioDescription: 'Bass controls wave amplitude, mids add choppiness, highs create foam sparkle',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
-  params: [],
+  params: [
+    {
+      key: 'viewAngle',
+      label: 'View Angle',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('ocean', (scene, config) => new OceanScene(scene, config), METADATA);

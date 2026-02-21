@@ -103,6 +103,19 @@ describe('PUT /api/auth/username', () => {
     expect(mockUpdateUsername).not.toHaveBeenCalled();
   });
 
+  it('normalizes username to lowercase', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue(null);
+    mockUpdateUsername.mockResolvedValue(undefined);
+    mockCreateSession.mockResolvedValue('new-token');
+
+    const res = await PUT(makeRequest({ username: 'NewName' }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.data.username).toBe('newname');
+    expect(mockUpdateUsername).toHaveBeenCalledWith('user-1', 'newname');
+  });
+
   it('returns 409 when username is already taken', async () => {
     mockVerifySession.mockResolvedValue(session);
     mockFindByUsername.mockResolvedValue({
@@ -121,6 +134,18 @@ describe('PUT /api/auth/username', () => {
     expect(data.error).toBe('Username is already taken');
   });
 
+  it('returns 409 when DB UNIQUE constraint fails (TOCTOU race)', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue(null);
+    mockUpdateUsername.mockRejectedValue(new Error('UNIQUE constraint failed: users.username'));
+
+    const res = await PUT(makeRequest({ username: 'newname' }));
+    const data = await res.json();
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('Username is already taken');
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
   it('updates username, reissues session cookie, and returns success', async () => {
     mockVerifySession.mockResolvedValue(session);
     mockFindByUsername.mockResolvedValue(null);
@@ -136,7 +161,7 @@ describe('PUT /api/auth/username', () => {
     expect(mockCreateSession).toHaveBeenCalledWith('user-1', 'newname', 'user');
   });
 
-  it('returns 500 when updateUsername throws', async () => {
+  it('returns 500 when updateUsername throws non-constraint error', async () => {
     mockVerifySession.mockResolvedValue(session);
     mockFindByUsername.mockResolvedValue(null);
     mockUpdateUsername.mockRejectedValue(new Error('SQLITE_BUSY'));
@@ -146,5 +171,19 @@ describe('PUT /api/auth/username', () => {
     expect(res.status).toBe(500);
     expect(data.error).toBe('Failed to update username');
     expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('returns success with warning when createSession fails after DB write', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue(null);
+    mockUpdateUsername.mockResolvedValue(undefined);
+    mockCreateSession.mockRejectedValue(new Error('Cookie store error'));
+
+    const res = await PUT(makeRequest({ username: 'newname' }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.username).toBe('newname');
+    expect(data.warning).toBe('Please log in again to refresh your session');
   });
 });

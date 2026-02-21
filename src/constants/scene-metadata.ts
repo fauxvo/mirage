@@ -13,6 +13,8 @@ export const SCENE_CATEGORIES = [
   'geometric',
   'abstract',
   'immersive',
+  'synthwave',
+  'psychedelic',
 ] as const;
 
 export const SCENE_METADATA = getAllSceneMetadata();

@@ -121,7 +121,13 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
             <div className="min-w-0 flex-1">
               <p className="text-[10px] text-white/25 uppercase tracking-wide">Username</p>
               {editingUsername ? (
-                <div className="mt-1">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleUsernameSubmit();
+                  }}
+                  className="mt-1"
+                >
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -131,7 +137,6 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                         setUsernameError('');
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleUsernameSubmit();
                         if (e.key === 'Escape') handleUsernameCancel();
                       }}
                       disabled={usernameLoading}
@@ -140,7 +145,7 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                       className="w-full max-w-[200px] px-2 py-1 bg-white/[0.04] border border-white/[0.12] rounded text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/25 transition-colors"
                     />
                     <button
-                      onClick={handleUsernameSubmit}
+                      type="submit"
                       disabled={usernameLoading}
                       className="p-1 rounded text-emerald-400/70 hover:text-emerald-400 hover:bg-white/[0.04] transition-colors disabled:opacity-50"
                       title="Save"
@@ -148,6 +153,7 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                       <Check className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={handleUsernameCancel}
                       disabled={usernameLoading}
                       className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors disabled:opacity-50"
@@ -159,10 +165,10 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                   {usernameError && (
                     <p className="mt-1 text-[10px] text-red-400">{usernameError}</p>
                   )}
-                </div>
+                </form>
               ) : (
                 <div className="flex items-center gap-2">
-                  <p className="text-sm text-white/70">{username}</p>
+                  <p className="text-sm text-white/70">{newUsername}</p>
                   <button
                     onClick={() => setEditingUsername(true)}
                     className="p-1 rounded text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-colors"

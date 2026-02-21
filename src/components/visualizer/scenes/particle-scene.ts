@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, TextureTransform } from './types';
+import { getParticleShapeTexture, type ParticleShape } from './particle-shapes';
 
 export class ParticleScene {
   private particles: THREE.Points;
@@ -10,6 +11,8 @@ export class ParticleScene {
   private velocities: Float32Array;
   private clock: THREE.Clock;
   private particleCount: number;
+  private hasCustomTexture = false;
+  private currentShape: ParticleShape;
 
   constructor(
     private scene: THREE.Scene,
@@ -58,8 +61,10 @@ export class ParticleScene {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
+    this.currentShape = (config.sceneParams?.particleShape as ParticleShape) ?? 'circle';
     this.material = new THREE.PointsMaterial({
-      size: 0.05,
+      size: 0.08,
+      map: getParticleShapeTexture(this.currentShape),
       sizeAttenuation: true,
       transparent: true,
       opacity: 0.8,
@@ -123,6 +128,13 @@ export class ParticleScene {
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
+    if (config.sceneParams?.particleShape !== undefined) {
+      this.currentShape = config.sceneParams.particleShape as ParticleShape;
+      if (!this.hasCustomTexture) {
+        this.material.map = getParticleShapeTexture(this.currentShape);
+        this.material.needsUpdate = true;
+      }
+    }
     if (config.animationSpeed !== undefined || config.audioReactivity !== undefined) {
       this.config = { ...this.config, ...config };
     }
@@ -151,18 +163,20 @@ export class ParticleScene {
     }
   }
 
-  private static BASE_POINT_SIZE = 0.05;
+  private static BASE_POINT_SIZE = 0.08;
 
   setTexture(texture: THREE.Texture | null): void {
+    this.hasCustomTexture = texture !== null;
     if (texture) {
       // For point sprites, textureScale controls particle size (not UV repeat)
       this.material.size = ParticleScene.BASE_POINT_SIZE * (this.config.textureScale ?? 1.0);
       this.material.opacity = this.config.textureOpacity ?? 0.8;
       this.material.transparent = true;
+      this.material.map = texture;
     } else {
       this.material.size = ParticleScene.BASE_POINT_SIZE;
+      this.material.map = getParticleShapeTexture(this.currentShape);
     }
-    this.material.map = texture;
     this.material.needsUpdate = true;
   }
 
@@ -201,6 +215,19 @@ const METADATA: SceneRegistration = {
       max: 1,
       step: 0.05,
       default: 0.5,
+    },
+    {
+      key: 'particleShape',
+      label: 'Particle Shape',
+      type: 'select',
+      default: 'circle',
+      options: [
+        { label: 'Circle', value: 'circle' },
+        { label: 'Star', value: 'star' },
+        { label: 'Diamond', value: 'diamond' },
+        { label: 'Ring', value: 'ring' },
+        { label: 'Sparkle', value: 'sparkle' },
+      ],
     },
   ],
 };

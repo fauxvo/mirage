@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { getParticleShapeTexture, type ParticleShape } from './particle-shapes';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -77,6 +78,8 @@ export class AuroraScene {
   private material: THREE.ShaderMaterial;
   private particleMaterial: THREE.PointsMaterial;
   private clock: THREE.Clock;
+  private hasCustomTexture = false;
+  private currentShape: ParticleShape;
 
   constructor(
     private scene: THREE.Scene,
@@ -106,8 +109,7 @@ export class AuroraScene {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.rotation.x = -Math.PI * 0.4;
-    this.mesh.position.y = -1;
+    this.applyViewAngle(Number(config.sceneParams?.viewAngle ?? 0.5));
     this.scene.add(this.mesh);
 
     // Ambient particles
@@ -122,9 +124,11 @@ export class AuroraScene {
     const particleGeometry = new THREE.BufferGeometry();
     particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
+    this.currentShape = (config.sceneParams?.particleShape as ParticleShape) ?? 'circle';
     this.particleMaterial = new THREE.PointsMaterial({
       color: new THREE.Color(palette.accent),
-      size: 0.04,
+      size: 0.08,
+      map: getParticleShapeTexture(this.currentShape),
       transparent: true,
       opacity: 0.6,
       blending: THREE.AdditiveBlending,
@@ -151,12 +155,32 @@ export class AuroraScene {
   }
 
   setTexture(texture: THREE.Texture | null): void {
+    // Shader plane texture
     this.material.uniforms.uTexture.value = texture;
     this.material.uniforms.uHasTexture.value = texture !== null;
+
+    // Particle sprite texture — custom texture overrides shape
+    this.hasCustomTexture = texture !== null;
+    if (texture) {
+      this.particleMaterial.map = texture;
+      this.particleMaterial.size = 0.15;
+    } else {
+      this.particleMaterial.map = getParticleShapeTexture(this.currentShape);
+      this.particleMaterial.size = 0.08;
+    }
+    this.particleMaterial.needsUpdate = true;
   }
 
   setTextureTransform(transform: TextureTransform): void {
     applyTextureTransform(this.material, transform);
+  }
+
+  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
+  private applyViewAngle(viewAngle: number): void {
+    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
+    const yOffset = -1.5 + viewAngle * 1.0;
+    this.mesh.rotation.x = tilt;
+    this.mesh.position.y = yOffset;
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
@@ -169,15 +193,20 @@ export class AuroraScene {
     if (config.animationSpeed !== undefined) {
       this.material.uniforms.uSpeed.value = config.animationSpeed;
     }
-    if (config.audioReactivity !== undefined) {
-      this.config = { ...this.config, ...config };
-    }
-    if (config.particleDensity !== undefined) {
-      this.config = { ...this.config, ...config };
-    }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
+    if (config.sceneParams?.viewAngle !== undefined) {
+      this.applyViewAngle(Number(config.sceneParams.viewAngle));
+    }
+    if (config.sceneParams?.particleShape !== undefined) {
+      this.currentShape = config.sceneParams.particleShape as ParticleShape;
+      if (!this.hasCustomTexture) {
+        this.particleMaterial.map = getParticleShapeTexture(this.currentShape);
+        this.particleMaterial.needsUpdate = true;
+      }
+    }
+    this.config = { ...this.config, ...config };
   }
 
   dispose(): void {
@@ -206,6 +235,28 @@ const METADATA: SceneRegistration = {
       max: 1,
       step: 0.05,
       default: 0.5,
+    },
+    {
+      key: 'viewAngle',
+      label: 'View Angle',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+    {
+      key: 'particleShape',
+      label: 'Particle Shape',
+      type: 'select',
+      default: 'circle',
+      options: [
+        { label: 'Circle', value: 'circle' },
+        { label: 'Star', value: 'star' },
+        { label: 'Diamond', value: 'diamond' },
+        { label: 'Ring', value: 'ring' },
+        { label: 'Sparkle', value: 'sparkle' },
+      ],
     },
   ],
 };

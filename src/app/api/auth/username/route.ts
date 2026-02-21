@@ -21,7 +21,8 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 
-  const { username } = parsed.data;
+  // Normalize to lowercase for case-insensitive uniqueness
+  const username = parsed.data.username.toLowerCase();
 
   if (username === session.username) {
     return NextResponse.json({ success: true, data: { username } });
@@ -37,14 +38,31 @@ export async function PUT(request: Request) {
 
   try {
     await userRepository.updateUsername(session.userId, username);
-  } catch {
+  } catch (err: unknown) {
+    // Catch UNIQUE constraint violation from DB (TOCTOU race guard)
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('UNIQUE constraint failed')) {
+      return NextResponse.json(
+        { success: false, error: 'Username is already taken' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { success: false, error: 'Failed to update username' },
       { status: 500 }
     );
   }
 
-  await createSession(session.userId, username, session.role);
+  // Reissue JWT with new username; if this fails the DB write already succeeded
+  try {
+    await createSession(session.userId, username, session.role);
+  } catch {
+    return NextResponse.json({
+      success: true,
+      data: { username },
+      warning: 'Please log in again to refresh your session',
+    });
+  }
 
   return NextResponse.json({ success: true, data: { username } });
 }

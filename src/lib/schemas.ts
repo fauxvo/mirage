@@ -28,6 +28,7 @@ export const VisualizerConfigSchema = z.object({
     .default('none'),
   textureTint: z.enum(['none', 'primary', 'secondary', 'accent']).default('none'),
   audioSensitivity: z.number().min(0.5).max(3).default(1.0),
+  intensityMultiplier: z.number().min(1).max(10).default(1),
   patternOffsetX: z.number().min(-1).max(1),
   patternOffsetY: z.number().min(-1).max(1).default(0),
   sceneParams: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])).optional(),
