@@ -296,11 +296,11 @@ export function VisualizerSettingsPanel({
     if (meta?.params) {
       for (const param of meta.params) {
         if (TOP_LEVEL_PARAM_KEYS.has(param.key)) continue;
-        if (param.type === 'slider') {
-          const steps = Math.round((param.max! - param.min!) / param.step!);
+        if (param.type === 'slider' && param.min != null && param.max != null && param.step) {
+          const steps = Math.round((param.max - param.min) / param.step);
           sceneParams[param.key] = Math.min(
-            param.max!,
-            param.min! + Math.floor(Math.random() * (steps + 1)) * param.step!
+            param.max,
+            param.min + Math.floor(Math.random() * (steps + 1)) * param.step
           );
         } else if (param.type === 'toggle') {
           sceneParams[param.key] = Math.random() > 0.5;

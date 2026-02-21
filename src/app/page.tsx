@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { SmartCta } from './smart-cta';
+import { ArrowRight } from 'lucide-react';
+import { verifySession } from '@/lib/auth/session';
 
 const FEATURES = [
   '25 Scenes',
@@ -13,13 +14,15 @@ const FEATURES = [
 
 const CATEGORIES = [
   { name: 'Organic', scenes: 'Aurora, Particles, Ocean, Lava, Metaballs' },
-  { name: 'Cosmic', scenes: 'Galaxy, Starfield, Nebula, Vortex' },
+  { name: 'Cosmic', scenes: 'Galaxy, Starfield, Nebula, Vortex, Swarm' },
   { name: 'Geometric', scenes: 'Rings, Orb, Kaleidoscope, Voronoi, Grid' },
   { name: 'Abstract', scenes: 'Fractal, Matrix, Waveform, Lattice' },
   { name: 'Immersive', scenes: 'Tunnel, Terrain, Starburst + variants' },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const session = await verifySession();
+  const ctaHref = session ? '/dashboard' : '/login';
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Hero — full viewport */}
@@ -47,7 +50,13 @@ export default function Home() {
             Real-time 3D music visualizer. Self-hosted, audio-reactive, endlessly customizable.
           </p>
 
-          <SmartCta />
+          <Link
+            href={ctaHref}
+            className="group inline-flex items-center gap-2.5 px-7 py-3 bg-white text-black font-medium rounded-lg hover:bg-white/90 transition-all text-sm"
+          >
+            Get Started
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </div>
       </div>
 
