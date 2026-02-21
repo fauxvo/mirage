@@ -206,7 +206,7 @@ export class HexagoneScene {
     const palette = config.colorPalette;
     const params = config.sceneParams ?? {};
 
-    const geometry = new THREE.PlaneGeometry(12, 12);
+    const geometry = new THREE.PlaneGeometry(24, 24);
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -286,7 +286,7 @@ const METADATA: SceneRegistration = {
   description:
     'Psychedelic hexagonal tiling with infinite zoom tunnel, 3D camera orbit, and color inversion. Inspired by "Hexagone" by BigWIngs/Martijn Steinrucken (shadertoy.com/view/WXyfWh, youtube.com/@TheArtOfCodeIsCool). CC BY-NC-SA 3.0.',
   category: 'psychedelic',
-  cameraHint: 'small-plane',
+  cameraHint: 'low-angle',
   audioDescription:
     'Bass drives wave amplitude, camera swoop, and zoom; mids add hex rotation and zoom depth; highs sharpen outlines and boost brightness',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],

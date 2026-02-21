@@ -103,7 +103,7 @@ export class SacredGeoScene {
     const palette = config.colorPalette;
     const params = config.sceneParams ?? {};
 
-    const geometry = new THREE.PlaneGeometry(12, 12);
+    const geometry = new THREE.PlaneGeometry(24, 24);
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -187,7 +187,7 @@ const METADATA: SceneRegistration = {
   description:
     'Morphing fractal inversion with kaleidoscopic sacred patterns. Inspired by "Ayahuasca" by sleeplessmonk (shadertoy.com/view/tsfyzn, linktr.ee/sleeplessmonk). CC BY-NC-SA 3.0.',
   category: 'psychedelic',
-  cameraHint: 'small-plane',
+  cameraHint: 'low-angle',
   audioDescription:
     'Bass deepens inversion and brightens glow, mids morph the fractal shape, highs add detail frequency and shimmer',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],

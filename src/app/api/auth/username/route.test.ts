@@ -137,7 +137,10 @@ describe('PUT /api/auth/username', () => {
   it('returns 409 when DB UNIQUE constraint fails (TOCTOU race)', async () => {
     mockVerifySession.mockResolvedValue(session);
     mockFindByUsername.mockResolvedValue(null);
-    mockUpdateUsername.mockRejectedValue(new Error('UNIQUE constraint failed: users.username'));
+    const sqliteError = Object.assign(new Error('UNIQUE constraint failed: users.username'), {
+      code: 'SQLITE_CONSTRAINT_UNIQUE',
+    });
+    mockUpdateUsername.mockRejectedValue(sqliteError);
 
     const res = await PUT(makeRequest({ username: 'newname' }));
     const data = await res.json();

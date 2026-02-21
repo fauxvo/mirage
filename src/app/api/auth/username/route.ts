@@ -37,8 +37,8 @@ export async function PUT(request: Request) {
     await userRepository.updateUsername(session.userId, username);
   } catch (err: unknown) {
     // Catch UNIQUE constraint violation from DB (TOCTOU race guard)
-    const message = err instanceof Error ? err.message : '';
-    if (message.includes('UNIQUE constraint failed')) {
+    const code = (err as { code?: string }).code ?? '';
+    if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return errorResponse('Username is already taken', 409);
     }
     return errorResponse('Failed to update username', 500);

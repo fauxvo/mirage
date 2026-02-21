@@ -119,12 +119,13 @@ const FRAGMENT_SHADER =
     float t = 0.1;
     float ac = 0.0;
 
-    // Glow falloff — mid controls sharpness
-    float glowExp = uGlowDensity * 15.0 + uMid * 15.0;
+    // Glow falloff — higher density = slower falloff = more glow
+    // Original uses fixed 23.0; slider adjusts ±15 around that
+    float glowExp = 23.0 + (1.0 - uGlowDensity) * 15.0 + uMid * 15.0;
     // Temporal ripple — high increases shimmer
     float ripple = 0.005 + uHigh * 0.02;
 
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 99; i++) {
       vec3 pos = ro + ray * t;
       // Domain repetition — infinite tiling
       pos = mod(pos - 2.0, 4.0) - 2.0;
@@ -175,7 +176,7 @@ export class OctagramsScene {
     const palette = config.colorPalette;
     const params = config.sceneParams ?? {};
 
-    const geometry = new THREE.PlaneGeometry(12, 12);
+    const geometry = new THREE.PlaneGeometry(24, 24);
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -255,7 +256,7 @@ const METADATA: SceneRegistration = {
   description:
     'Infinite raymarched tunnel of pulsating octagram star tiles with volumetric glow. Inspired by "Octagrams" by whisky_shusuky (shadertoy.com/view/tlVGDt, github.com/whisky-shusuky). CC BY-NC-SA 3.0.',
   category: 'psychedelic',
-  cameraHint: 'small-plane',
+  cameraHint: 'low-angle',
   audioDescription:
     'Bass drives arm spread, scale pulse, and tunnel speed; mids control glow sharpness and camera drift; highs add temporal shimmer and flash',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
