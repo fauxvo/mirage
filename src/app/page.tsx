@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
-import { verifySession } from '@/lib/auth/session';
+import { SmartCta } from './smart-cta';
 
 const FEATURES = [
   '25 Scenes',
@@ -20,10 +19,7 @@ const CATEGORIES = [
   { name: 'Immersive', scenes: 'Tunnel, Terrain, Starburst + variants' },
 ];
 
-export default async function Home() {
-  const session = await verifySession();
-  const ctaHref = session ? '/dashboard' : '/login';
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Hero — full viewport */}
@@ -51,13 +47,7 @@ export default async function Home() {
             Real-time 3D music visualizer. Self-hosted, audio-reactive, endlessly customizable.
           </p>
 
-          <Link
-            href={ctaHref}
-            className="group inline-flex items-center gap-2.5 px-7 py-3 bg-white text-black font-medium rounded-lg hover:bg-white/90 transition-all text-sm"
-          >
-            Get Started
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+          <SmartCta />
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import type { VisualizerConfig, TextureTint } from '@/types/visualizer';
+import type { VisualizerConfig } from '@/types/visualizer';
 import { createScene, type SceneHandler } from './scenes';
 import { getSceneMetadata } from './scenes/scene-registry';
 import type { CameraHint, SceneUserData } from './scenes/types';
@@ -240,7 +240,7 @@ export class VisualizerEngine {
   private resolveTintColor(): { r: number; g: number; b: number } {
     if (!this._tintDirty) return this._tintResult;
     this._tintDirty = false;
-    const tint = (this.config.textureTint as TextureTint) ?? 'none';
+    const tint = this.config.textureTint ?? 'none';
     if (tint === 'none') {
       this._tintResult.r = this._tintResult.g = this._tintResult.b = 1;
     } else {
@@ -376,6 +376,7 @@ export class VisualizerEngine {
   updateConfig(newConfig: Partial<VisualizerConfig>): void {
     const prevScene = this.config.scene;
     const prevDensity = this.config.particleDensity;
+    const prevCameraMovement = this.config.cameraMovement;
     this.config = { ...this.config, ...newConfig };
 
     // Invalidate tint cache when relevant config changes
@@ -422,8 +423,8 @@ export class VisualizerEngine {
       (this.scene.fog as THREE.FogExp2).density = newConfig.depth * 0.1;
     }
 
-    // Reset camera when switching back to static, or when scene params change
-    if (newConfig.cameraMovement === 'static') {
+    // Reset camera only when SWITCHING TO static (not when already static)
+    if (newConfig.cameraMovement === 'static' && prevCameraMovement !== 'static') {
       this.cameraAngle = 0;
       this.positionCamera();
     }
