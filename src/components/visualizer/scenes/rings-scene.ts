@@ -9,6 +9,10 @@ export class RingsScene {
   private group: THREE.Group;
   private clock: THREE.Clock;
   private ringCount: number;
+  // Scratch colors for palette restoration — avoids per-call allocation
+  private _scratchPrimary = new THREE.Color();
+  private _scratchSecondary = new THREE.Color();
+  private _scratchAccent = new THREE.Color();
 
   constructor(
     private scene: THREE.Scene,
@@ -126,11 +130,15 @@ export class RingsScene {
       // Reset tint color to palette color when texture is removed
       if (!texture) {
         const palette = this.config.colorPalette;
-        const primary = new THREE.Color(palette.primary);
-        const secondary = new THREE.Color(palette.secondary);
-        const accent = new THREE.Color(palette.accent);
+        this._scratchPrimary.set(palette.primary);
+        this._scratchSecondary.set(palette.secondary);
+        this._scratchAccent.set(palette.accent);
         const t = i / this.ringCount;
-        mat.color.lerpColors(primary, i % 3 === 0 ? accent : secondary, t);
+        mat.color.lerpColors(
+          this._scratchPrimary,
+          i % 3 === 0 ? this._scratchAccent : this._scratchSecondary,
+          t
+        );
       }
       mat.needsUpdate = true;
     }

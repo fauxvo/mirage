@@ -37,6 +37,7 @@ export class VisualizerEngine {
   // Separate timestamp for frame-rate independent audio smoothing
   // (can't use this.clock.getDelta() — it conflicts with getElapsedTime())
   private _lastFrameTime = 0;
+  private _hasFrameTime = false;
 
   constructor(canvas: HTMLCanvasElement, config: VisualizerConfig) {
     this.config = config;
@@ -237,6 +238,11 @@ export class VisualizerEngine {
     this.audioEnabled = enabled;
   }
 
+  /**
+   * Resolves the current texture tint to an RGB triplet.
+   * Returns a **mutable cached reference** (`this._tintResult`) — callers must
+   * consume the values before the next call. This avoids per-frame allocation.
+   */
   private resolveTintColor(): { r: number; g: number; b: number } {
     if (!this._tintDirty) return this._tintResult;
     this._tintDirty = false;
@@ -263,8 +269,9 @@ export class VisualizerEngine {
     // Frame-rate independent smoothing: scale coefficients by delta time
     // so behavior is consistent across 30fps, 60fps, and 144Hz displays
     const now = performance.now() / 1000;
-    const dt = Math.min(this._lastFrameTime ? now - this._lastFrameTime : 1 / 60, 0.1);
+    const dt = Math.min(this._hasFrameTime ? now - this._lastFrameTime : 1 / 60, 0.1);
     this._lastFrameTime = now;
+    this._hasFrameTime = true;
     const dtScale = dt * 60; // normalize to 60fps baseline
 
     if (!this.audioEnabled || !this.analyser || !this.dataArray) {

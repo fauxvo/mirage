@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { verifySession } from '@/lib/auth/session';
 
 const FEATURES = [
   '25 Scenes',
@@ -20,9 +19,7 @@ const CATEGORIES = [
   { name: 'Immersive', scenes: 'Tunnel, Terrain, Starburst + variants' },
 ];
 
-export default async function Home() {
-  const session = await verifySession();
-  const ctaHref = session ? '/dashboard' : '/login';
+export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Hero — full viewport */}
@@ -51,7 +48,7 @@ export default async function Home() {
           </p>
 
           <Link
-            href={ctaHref}
+            href="/login"
             className="group inline-flex items-center gap-2.5 px-7 py-3 bg-white text-black font-medium rounded-lg hover:bg-white/90 transition-all text-sm"
           >
             Get Started

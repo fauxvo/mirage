@@ -23,8 +23,9 @@ import {
 const BURST_VERTEX = `
   varying vec3 vWorldDir;
   void main() {
-    // World-space direction: pattern center is fixed in world space so it
-    // slides on-screen when the camera orbits (unlike view-space locking).
+    // Deliberate visual redesign: world-space direction so the burst pattern
+    // center is fixed in world space and slides on-screen when the camera
+    // orbits, rather than staying locked to the view (which felt static).
     vWorldDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }

@@ -1018,6 +1018,8 @@ export function VisualizerSettingsPanel({
                     onChange={(v) => onQuickChange({ textureMotion: v })}
                   />
                 )}
+                {/* Tint is universal — the engine applies it to all scenes via TextureTransform,
+                    so unlike per-scene features (scale, motion, etc.) it needs no feature gate. */}
                 <TextureTintPicker
                   value={config.textureTint ?? 'none'}
                   onChange={(v) => onQuickChange({ textureTint: v })}
