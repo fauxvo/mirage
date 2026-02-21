@@ -135,9 +135,6 @@ export class ParticleScene {
         this.material.needsUpdate = true;
       }
     }
-    if (config.animationSpeed !== undefined || config.audioReactivity !== undefined) {
-      this.config = { ...this.config, ...config };
-    }
     if (config.colorPalette) {
       const colors = this.particles.geometry.attributes.color.array as Float32Array;
       const primaryColor = new THREE.Color(config.colorPalette.primary);
@@ -156,11 +153,11 @@ export class ParticleScene {
       this.config = { ...this.config, ...config };
     }
     if (config.textureScale !== undefined) {
-      this.config = { ...this.config, ...config };
       if (this.material.map) {
         this.material.size = ParticleScene.BASE_POINT_SIZE * config.textureScale;
       }
     }
+    this.config = { ...this.config, ...config };
   }
 
   private static BASE_POINT_SIZE = 0.08;

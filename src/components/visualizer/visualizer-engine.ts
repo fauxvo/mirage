@@ -425,8 +425,8 @@ export class VisualizerEngine {
       });
     }
 
-    // Dynamic bloom: base intensity * multiplier
-    this.bloomPass.strength = (this.config.bloomIntensity ?? 1.5) * mul;
+    // Dynamic bloom: base intensity * multiplier, capped to avoid whiteout
+    this.bloomPass.strength = Math.min((this.config.bloomIntensity ?? 1.5) * mul, 8);
 
     this.composer.render();
   };

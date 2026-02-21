@@ -136,7 +136,11 @@ const FRAGMENT_SHADER =
 
     vec3 col = vec3(0.0);
 
-    // Ray-plane intersection
+    // Ray-plane intersection — early-out when ray is nearly parallel to plane
+    if (abs(rd.y) < 0.001) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
     vec3 p = ro + rd * (ro.y / rd.y);
     float dp = length(p.xz);
 
@@ -173,10 +177,10 @@ const FRAGMENT_SHADER =
     // Color inversion when camera below plane
     if (ro.y < 0.0) col = 1.0 - col;
 
-    // Distance fog
-    col *= smoothstep(18.0, 5.0, dp);
-    // Vignette
-    col *= 1.0 - duv * 2.0;
+    // Distance fog — pushed out so the plane fills more of the screen
+    col *= smoothstep(40.0, 8.0, dp);
+    // Subtle vignette — darken edges gently instead of hard circle
+    col *= 1.0 - duv * 0.6;
 
     if (uHasTexture) {
       vec4 tex = sampleTransformedTexture((vUv - 0.5) / uTextureScale + 0.5);

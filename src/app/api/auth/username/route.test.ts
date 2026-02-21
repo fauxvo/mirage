@@ -184,6 +184,6 @@ describe('PUT /api/auth/username', () => {
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.data.username).toBe('newname');
-    expect(data.warning).toBe('Please log in again to refresh your session');
+    expect(data.data.warning).toBe('Please log in again to refresh your session');
   });
 });

@@ -124,7 +124,7 @@ const FRAGMENT_SHADER =
     // Temporal ripple — high increases shimmer
     float ripple = 0.005 + uHigh * 0.02;
 
-    for (int i = 0; i < 99; i++) {
+    for (int i = 0; i < 64; i++) {
       vec3 pos = ro + ray * t;
       // Domain repetition — infinite tiling
       pos = mod(pos - 2.0, 4.0) - 2.0;

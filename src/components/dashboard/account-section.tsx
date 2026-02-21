@@ -48,8 +48,12 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
         setUsernameError(data.error);
         return;
       }
-      setNewUsername(trimmed);
+      // Use server-canonical username (lowercase-normalized) to avoid casing flash
+      setNewUsername(data.data?.username ?? trimmed);
       setEditingUsername(false);
+      if (data.data?.warning) {
+        setUsernameError(data.data.warning);
+      }
       router.refresh();
     } catch {
       setUsernameError('Network error');
