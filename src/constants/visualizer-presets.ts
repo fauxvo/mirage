@@ -262,6 +262,7 @@ export function buildDefaultConfig(
     textureMotion: 'none',
     textureTint: 'none',
     audioSensitivity: 1.0,
+    intensityMultiplier: 1,
     patternOffsetX: 0,
     patternOffsetY: 0,
     sceneParams: {},

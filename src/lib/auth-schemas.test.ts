@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { LoginSchema, RegisterSchema, CreateUserSchema, CreateApiKeySchema } from './auth-schemas';
+import {
+  LoginSchema,
+  RegisterSchema,
+  CreateUserSchema,
+  CreateApiKeySchema,
+  ChangeUsernameSchema,
+} from './auth-schemas';
 
 describe('LoginSchema', () => {
   it('accepts valid credentials', () => {
@@ -93,6 +99,33 @@ describe('CreateUserSchema', () => {
   it('rejects invalid role', () => {
     const result = CreateUserSchema.safeParse({ ...validData, role: 'superadmin' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('ChangeUsernameSchema', () => {
+  it('accepts valid username', () => {
+    const result = ChangeUsernameSchema.safeParse({ username: 'newuser' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects username shorter than 3 chars', () => {
+    const result = ChangeUsernameSchema.safeParse({ username: 'ab' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects username longer than 32 chars', () => {
+    const result = ChangeUsernameSchema.safeParse({ username: 'a'.repeat(33) });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects username with special characters', () => {
+    const result = ChangeUsernameSchema.safeParse({ username: 'bad name!' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts hyphens and underscores', () => {
+    const result = ChangeUsernameSchema.safeParse({ username: 'my-user_name' });
+    expect(result.success).toBe(true);
   });
 });
 

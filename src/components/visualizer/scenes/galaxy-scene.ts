@@ -3,6 +3,7 @@ import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, SceneUserData, TextureTransform } from './types';
 import { applyFixedMotion } from './starburst-utils';
+import { getParticleShapeTexture, type ParticleShape } from './particle-shapes';
 
 export class GalaxyScene {
   private particles: THREE.Points;
@@ -15,6 +16,8 @@ export class GalaxyScene {
   private clock: THREE.Clock;
   private particleCount: number;
   private camera: THREE.Camera;
+  private hasCustomTexture = false;
+  private currentShape: ParticleShape;
 
   constructor(
     private scene: THREE.Scene,
@@ -72,8 +75,10 @@ export class GalaxyScene {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+    this.currentShape = (config.sceneParams?.particleShape as ParticleShape) ?? 'circle';
     this.material = new THREE.PointsMaterial({
-      size: 0.05,
+      size: 0.08,
+      map: getParticleShapeTexture(this.currentShape),
       transparent: true,
       opacity: 0.85,
       blending: THREE.AdditiveBlending,
@@ -163,12 +168,21 @@ export class GalaxyScene {
     if (config.textureScale !== undefined && this.texturePlane) {
       this.texturePlane.scale.setScalar(config.textureScale);
     }
+    if (config.sceneParams?.particleShape !== undefined) {
+      this.currentShape = config.sceneParams.particleShape as ParticleShape;
+      if (!this.hasCustomTexture) {
+        this.material.map = getParticleShapeTexture(this.currentShape);
+        this.material.needsUpdate = true;
+      }
+    }
     this.config = { ...this.config, ...config };
   }
 
   setTexture(texture: THREE.Texture | null): void {
-    // Apply texture to particles as point sprites
-    this.material.map = texture;
+    this.hasCustomTexture = texture !== null;
+
+    // Apply texture to particles as point sprites (or restore shape)
+    this.material.map = texture ?? getParticleShapeTexture(this.currentShape);
     this.material.needsUpdate = true;
 
     if (texture) {
@@ -265,6 +279,19 @@ const METADATA: SceneRegistration = {
       max: 1,
       step: 0.05,
       default: 0.5,
+    },
+    {
+      key: 'particleShape',
+      label: 'Particle Shape',
+      type: 'select',
+      default: 'circle',
+      options: [
+        { label: 'Circle', value: 'circle' },
+        { label: 'Star', value: 'star' },
+        { label: 'Diamond', value: 'diamond' },
+        { label: 'Ring', value: 'ring' },
+        { label: 'Sparkle', value: 'sparkle' },
+      ],
     },
   ],
 };

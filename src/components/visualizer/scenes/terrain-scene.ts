@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -131,8 +132,7 @@ export class TerrainScene {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.rotation.x = -Math.PI * 0.55;
-    this.mesh.position.y = -2;
+    applyViewAngle(this.mesh, Number(config.sceneParams?.viewAngle ?? 0.5));
     this.scene.add(this.mesh);
   }
 
@@ -169,6 +169,9 @@ export class TerrainScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
+    if (config.sceneParams?.viewAngle !== undefined) {
+      applyViewAngle(this.mesh, Number(config.sceneParams.viewAngle));
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -187,7 +190,18 @@ const METADATA: SceneRegistration = {
   audioDescription:
     'Bass controls terrain amplitude, mids scroll the landscape, highs add detail frequency',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
-  params: [{ key: 'wireframe', label: 'Wireframe', type: 'toggle', default: false }],
+  params: [
+    { key: 'wireframe', label: 'Wireframe', type: 'toggle', default: false },
+    {
+      key: 'viewAngle',
+      label: 'View Angle',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('terrain', (scene, config) => new TerrainScene(scene, config), METADATA);

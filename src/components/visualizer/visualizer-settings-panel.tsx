@@ -78,6 +78,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   geometric: 'Geometric',
   abstract: 'Abstract',
   immersive: 'Immersive',
+  synthwave: 'Synthwave',
+  psychedelic: 'Psychedelic',
 };
 
 // Keys that map to top-level config fields for backward compatibility
@@ -332,6 +334,7 @@ export function VisualizerSettingsPanel({
       textureMotion: config.textureMotion,
       textureTint: config.textureTint,
       audioSensitivity: config.audioSensitivity,
+      intensityMultiplier: config.intensityMultiplier,
       patternOffsetX: config.patternOffsetX,
       patternOffsetY: config.patternOffsetY,
     });
@@ -1047,6 +1050,29 @@ export function VisualizerSettingsPanel({
                 )}
               </>
             )}
+
+            {/* Intensity Multiplier */}
+            <section>
+              <h4 className="text-[11px] font-semibold text-teal-200/70 uppercase tracking-wider mb-2">
+                Intensity
+              </h4>
+              <div className="flex gap-1.5">
+                {([1, 2, 5, 10] as const).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => onQuickChange({ intensityMultiplier: level })}
+                    className={cn(
+                      'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      (config.intensityMultiplier ?? 1) === level
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'
+                    )}
+                  >
+                    {level === 1 ? '1x' : `${level}x`}
+                  </button>
+                ))}
+              </div>
+            </section>
 
             {/* Randomize & Reset */}
             <section className="flex gap-2">

@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -127,8 +128,7 @@ export class OceanScene {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.rotation.x = -Math.PI * 0.45;
-    this.mesh.position.y = -1.5;
+    applyViewAngle(this.mesh, Number(config.sceneParams?.viewAngle ?? 0.5));
     this.scene.add(this.mesh);
   }
 
@@ -162,6 +162,9 @@ export class OceanScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
+    if (config.sceneParams?.viewAngle !== undefined) {
+      applyViewAngle(this.mesh, Number(config.sceneParams.viewAngle));
+    }
     this.config = { ...this.config, ...config };
   }
 
@@ -179,7 +182,17 @@ const METADATA: SceneRegistration = {
   category: 'organic',
   audioDescription: 'Bass controls wave amplitude, mids add choppiness, highs create foam sparkle',
   features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
-  params: [],
+  params: [
+    {
+      key: 'viewAngle',
+      label: 'View Angle',
+      type: 'slider',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      default: 0.5,
+    },
+  ],
 };
 
 registerScene('ocean', (scene, config) => new OceanScene(scene, config), METADATA);
