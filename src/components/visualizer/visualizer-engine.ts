@@ -405,7 +405,7 @@ export class VisualizerEngine {
     // Engine-driven texture animation & motion for scenes that implement setTextureTransform
     if (this.sceneHandler?.setTextureTransform && this.customTexture) {
       const time = this.clock.getElapsedTime();
-      const speed = this.config.animationSpeed;
+      const speed = this.config.animationSpeed * mul;
       const baseOpacity = this.config.textureOpacity ?? 1.0;
 
       const animMode = this.config.textureAnimation ?? 'none';
@@ -447,12 +447,15 @@ export class VisualizerEngine {
     const densityChanged =
       newConfig.particleDensity !== undefined && newConfig.particleDensity !== prevDensity;
 
-    // When multiplier or speed changes, push effective speed to scene
+    // Always forward effective speed (base * multiplier) to scenes so the raw
+    // animationSpeed in newConfig never clobbers the multiplied value, and so
+    // switching multiplier back to 1x correctly resets the scene speed.
     const mul = this.config.intensityMultiplier ?? 1;
-    if (newConfig.intensityMultiplier !== undefined || newConfig.animationSpeed !== undefined) {
-      const effectiveSpeed = this.config.animationSpeed * mul;
-      this.sceneHandler?.updateConfig({ animationSpeed: effectiveSpeed });
-    }
+    const speedOrMulChanged =
+      newConfig.animationSpeed !== undefined || newConfig.intensityMultiplier !== undefined;
+    const sceneConfig: Partial<VisualizerConfig> = speedOrMulChanged
+      ? { ...newConfig, animationSpeed: this.config.animationSpeed * mul }
+      : newConfig;
 
     if (newConfig.scene && newConfig.scene !== prevScene) {
       // Scene change — immediate reload, cancel any pending density debounce
@@ -469,9 +472,9 @@ export class VisualizerEngine {
         this.densityReloadTimeout = null;
       }, 300);
       // Still forward other config changes immediately
-      this.sceneHandler?.updateConfig(newConfig);
+      this.sceneHandler?.updateConfig(sceneConfig);
     } else {
-      this.sceneHandler?.updateConfig(newConfig);
+      this.sceneHandler?.updateConfig(sceneConfig);
     }
 
     // Update bloom (animate loop handles multiplier dynamically)
