@@ -276,7 +276,7 @@ export class VisualizerEngine {
 
     if (!this.audioEnabled || !this.analyser || !this.dataArray) {
       // Decay smoothed values toward zero when audio is off
-      const decay = 1 - Math.pow(0.1, dtScale);
+      const decay = 1 - Math.pow(0.3, dtScale);
       this.smoothBass -= this.smoothBass * decay;
       this.smoothMid -= this.smoothMid * decay;
       this.smoothHigh -= this.smoothHigh * decay;
@@ -373,7 +373,7 @@ export class VisualizerEngine {
         offsetX: motion.offsetX,
         offsetY: motion.offsetY,
         scale: motion.extraScale,
-        tintColor: this.resolveTintColor(),
+        tintColor: { ...this.resolveTintColor() },
       });
     }
 
