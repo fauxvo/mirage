@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 // ── Neon Horizon ────────────────────────────────────────────────────────────
 // Tron-style concentric arcs radiating from a vanishing point with
@@ -353,16 +354,8 @@ export class NeonHorizonScene {
     });
 
     this.ground = new THREE.Mesh(groundGeo, this.groundMaterial);
-    this.applyViewAngle(Number(params.viewAngle ?? 0.5));
+    applyViewAngle(this.ground, Number(params.viewAngle ?? 0.5));
     this.scene.add(this.ground);
-  }
-
-  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
-  private applyViewAngle(viewAngle: number): void {
-    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
-    const yOffset = -1.5 + viewAngle * 1.0;
-    this.ground.rotation.x = tilt;
-    this.ground.position.y = yOffset;
   }
 
   update(bass: number, mid: number, high: number): void {
@@ -410,7 +403,7 @@ export class NeonHorizonScene {
     }
     if (config.sceneParams) {
       if (config.sceneParams.viewAngle !== undefined) {
-        this.applyViewAngle(Number(config.sceneParams.viewAngle));
+        applyViewAngle(this.ground, Number(config.sceneParams.viewAngle));
       }
       if (config.sceneParams.arcDensity !== undefined) {
         this.backdropMaterial.uniforms.uArcCount.value =

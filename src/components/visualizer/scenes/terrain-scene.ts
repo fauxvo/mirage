@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 const VERTEX_SHADER = `
   uniform float uTime;
@@ -131,7 +132,7 @@ export class TerrainScene {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.applyViewAngle(Number(config.sceneParams?.viewAngle ?? 0.5));
+    applyViewAngle(this.mesh, Number(config.sceneParams?.viewAngle ?? 0.5));
     this.scene.add(this.mesh);
   }
 
@@ -153,14 +154,6 @@ export class TerrainScene {
     applyTextureTransform(this.material, transform);
   }
 
-  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
-  private applyViewAngle(viewAngle: number): void {
-    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
-    const yOffset = -1.5 + viewAngle * 1.0;
-    this.mesh.rotation.x = tilt;
-    this.mesh.position.y = yOffset;
-  }
-
   updateConfig(config: Partial<VisualizerConfig>): void {
     if (config.colorPalette) {
       this.material.uniforms.uPrimary.value.set(config.colorPalette.primary);
@@ -177,7 +170,7 @@ export class TerrainScene {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
     if (config.sceneParams?.viewAngle !== undefined) {
-      this.applyViewAngle(Number(config.sceneParams.viewAngle));
+      applyViewAngle(this.mesh, Number(config.sceneParams.viewAngle));
     }
     this.config = { ...this.config, ...config };
   }

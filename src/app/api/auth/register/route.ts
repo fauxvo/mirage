@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
     return errorResponse(parsed.error.issues[0]?.message ?? 'Validation error', 400);
   }
 
+  const username = parsed.data.username.toLowerCase();
   const email = parsed.data.email.toLowerCase().trim();
 
-  const existingUsername = await userRepository.findByUsername(parsed.data.username);
+  const existingUsername = await userRepository.findByUsername(username);
   if (existingUsername) {
     return errorResponse('Username already exists', 409);
   }
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   const passwordHash = await hash(parsed.data.password, 12);
   const user = await userRepository.create({
     id: nanoid(16),
-    username: parsed.data.username,
+    username,
     email,
     passwordHash,
     role: 'user',

@@ -8,6 +8,7 @@ import { createScene, type SceneHandler } from './scenes';
 import { getSceneMetadata } from './scenes/scene-registry';
 import type { CameraHint, SceneUserData } from './scenes/types';
 import { computeAnimatedOpacity, computeTextureMotion } from './scenes/starburst-utils';
+import { disposeParticleShapeCache } from './scenes/particle-shapes';
 
 export class VisualizerEngine {
   private renderer: THREE.WebGLRenderer;
@@ -22,6 +23,8 @@ export class VisualizerEngine {
   private animationFrameId: number | null = null;
   private config: VisualizerConfig;
   private cameraAngle = 0;
+  private baseCameraY = 2; // cached initial Y to prevent cumulative drift in low-angle modes
+  private baseCameraZ = 6;
   private customTexture: THREE.Texture | null = null;
   private customTextureUrl: string | null = null;
   private clock = new THREE.Clock();
@@ -135,6 +138,9 @@ export class VisualizerEngine {
         const camY = 0.3 + viewAngle * 11.7; // 0.3 → 12
         const camZ = 10 - viewAngle * 10; // 10 → 0
         this.camera.position.set(0, camY, camZ);
+        // Cache base position for camera movement modes (prevents cumulative drift)
+        this.baseCameraY = camY;
+        this.baseCameraZ = camZ;
         break;
       }
       default:
@@ -334,24 +340,20 @@ export class VisualizerEngine {
           this.cameraAngle = (this.cameraAngle + 0.0015 * speed) % (Math.PI * 2);
           // Gentle horizontal sway ±15° (vs ±50° for 3D scenes)
           const swing = Math.sin(this.cameraAngle) * ((15 * Math.PI) / 180);
-          const baseY = this.camera.position.y;
-          const baseZ = this.camera.position.z;
-          this.camera.position.x = Math.sin(swing) * baseZ * 0.25;
-          this.camera.position.y = baseY + Math.sin(this.cameraAngle * 0.5) * 0.3;
+          this.camera.position.x = Math.sin(swing) * this.baseCameraZ * 0.25;
+          this.camera.position.y = this.baseCameraY + Math.sin(this.cameraAngle * 0.5) * 0.3;
           this.camera.lookAt(0, 0, 0);
           break;
         }
         case 'drift': {
           this.cameraAngle = (this.cameraAngle + 0.001 * speed) % (Math.PI * 2);
-          const baseY = this.camera.position.y;
           this.camera.position.x = Math.sin(this.cameraAngle * 0.5) * 1.2;
-          this.camera.position.y = baseY + Math.sin(this.cameraAngle * 0.3) * 0.3;
+          this.camera.position.y = this.baseCameraY + Math.sin(this.cameraAngle * 0.3) * 0.3;
           this.camera.lookAt(0, 0, 0);
           break;
         }
         case 'pulse': {
-          const baseZ = this.camera.position.z;
-          const pulseZ = baseZ + audio.bass * this.config.audioReactivity * -0.8;
+          const pulseZ = this.baseCameraZ + audio.bass * this.config.audioReactivity * -0.8;
           this.camera.position.z += (pulseZ - this.camera.position.z) * 0.05;
           break;
         }
@@ -433,6 +435,8 @@ export class VisualizerEngine {
     const prevScene = this.config.scene;
     const prevDensity = this.config.particleDensity;
     const prevCameraMovement = this.config.cameraMovement;
+
+    // Merge first so all downstream reads see the new values
     this.config = { ...this.config, ...newConfig };
 
     // Invalidate tint cache when relevant config changes
@@ -442,6 +446,13 @@ export class VisualizerEngine {
 
     const densityChanged =
       newConfig.particleDensity !== undefined && newConfig.particleDensity !== prevDensity;
+
+    // When multiplier or speed changes, push effective speed to scene
+    const mul = this.config.intensityMultiplier ?? 1;
+    if (newConfig.intensityMultiplier !== undefined || newConfig.animationSpeed !== undefined) {
+      const effectiveSpeed = this.config.animationSpeed * mul;
+      this.sceneHandler?.updateConfig({ animationSpeed: effectiveSpeed });
+    }
 
     if (newConfig.scene && newConfig.scene !== prevScene) {
       // Scene change — immediate reload, cancel any pending density debounce
@@ -465,15 +476,7 @@ export class VisualizerEngine {
 
     // Update bloom (animate loop handles multiplier dynamically)
     if (newConfig.bloomIntensity !== undefined) {
-      const mul = this.config.intensityMultiplier ?? 1;
-      this.bloomPass.strength = newConfig.bloomIntensity * mul;
-    }
-
-    // When multiplier or speed changes, push effective speed to scene
-    if (newConfig.intensityMultiplier !== undefined || newConfig.animationSpeed !== undefined) {
-      const mul = this.config.intensityMultiplier ?? 1;
-      const effectiveSpeed = this.config.animationSpeed * mul;
-      this.sceneHandler?.updateConfig({ animationSpeed: effectiveSpeed });
+      this.bloomPass.strength = this.config.bloomIntensity * mul;
     }
 
     // Update background
@@ -546,6 +549,7 @@ export class VisualizerEngine {
     if (this.customTexture) {
       this.customTexture.dispose();
     }
+    disposeParticleShapeCache();
     this.bloomPass.dispose();
     this.composer.dispose();
     this.renderer.dispose();

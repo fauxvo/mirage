@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 const GRID_DENSITY_MAP: Record<string, number> = { sparse: 12, normal: 24, dense: 48 };
 
@@ -358,16 +359,8 @@ export class VaporwaveScene {
     });
 
     this.terrain = new THREE.Mesh(geometry, this.terrainMaterial);
-    this.applyViewAngle(Number(params.viewAngle ?? 0.5));
+    applyViewAngle(this.terrain, Number(params.viewAngle ?? 0.5));
     this.scene.add(this.terrain);
-  }
-
-  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
-  private applyViewAngle(viewAngle: number): void {
-    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
-    const yOffset = -1.5 + viewAngle * 1.0;
-    this.terrain.rotation.x = tilt;
-    this.terrain.position.y = yOffset;
   }
 
   update(bass: number, mid: number, high: number): void {
@@ -417,7 +410,7 @@ export class VaporwaveScene {
     }
     if (config.sceneParams) {
       if (config.sceneParams.viewAngle !== undefined) {
-        this.applyViewAngle(Number(config.sceneParams.viewAngle));
+        applyViewAngle(this.terrain, Number(config.sceneParams.viewAngle));
       }
       if (config.sceneParams.peakHeight !== undefined) {
         this.terrainMaterial.uniforms.uPeakHeight.value =

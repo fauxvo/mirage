@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 // ── Laser Grid ──────────────────────────────────────────────────────────────
 // Tron-style infinite laser floor with vertical neon beams at grid intersections
@@ -280,16 +281,8 @@ export class LaserGridScene {
     });
 
     this.ground = new THREE.Mesh(groundGeo, this.groundMaterial);
-    this.applyViewAngle(Number(params.viewAngle ?? 0.5));
+    applyViewAngle(this.ground, Number(params.viewAngle ?? 0.5));
     this.scene.add(this.ground);
-  }
-
-  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
-  private applyViewAngle(viewAngle: number): void {
-    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
-    const yOffset = -1.5 + viewAngle * 1.0;
-    this.ground.rotation.x = tilt;
-    this.ground.position.y = yOffset;
   }
 
   update(bass: number, mid: number, high: number): void {
@@ -337,7 +330,7 @@ export class LaserGridScene {
     }
     if (config.sceneParams) {
       if (config.sceneParams.viewAngle !== undefined) {
-        this.applyViewAngle(Number(config.sceneParams.viewAngle));
+        applyViewAngle(this.ground, Number(config.sceneParams.viewAngle));
       }
       if (config.sceneParams.beamIntensity !== undefined) {
         this.groundMaterial.uniforms.uBeamIntensity.value =

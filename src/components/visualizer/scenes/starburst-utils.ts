@@ -159,3 +159,14 @@ export function applyFixedMotion(
   logoMesh.position.addScaledVector(_right, offsetX * 4.0);
   logoMesh.position.addScaledVector(_up, offsetY * 4.0);
 }
+
+/**
+ * Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset.
+ * Shared by all flat-plane scenes (aurora, ocean, terrain, synthwave, etc.)
+ */
+export function applyViewAngle(mesh: THREE.Object3D, viewAngle: number): void {
+  const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
+  const yOffset = -1.5 + viewAngle * 1.0;
+  mesh.rotation.x = tilt;
+  mesh.position.y = yOffset;
+}

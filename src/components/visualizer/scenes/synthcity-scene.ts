@@ -8,6 +8,7 @@ import {
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
+import { applyViewAngle } from './starburst-utils';
 
 // ── City skyline shader ─────────────────────────────────────────────────────
 // Procedural city silhouette with neon windows, volumetric beams, and starfield
@@ -166,8 +167,9 @@ const GROUND_FRAGMENT =
   uniform vec3 uPrimary;
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
-  uniform float uHigh;
   uniform float uBass;
+  uniform float uMid;
+  uniform float uHigh;
   uniform float uTime;
   uniform float uSpeed;
   varying vec2 vUv;
@@ -273,6 +275,7 @@ export class SynthcityScene {
       uniforms: {
         uTime: { value: 0 },
         uBass: { value: 0 },
+        uMid: { value: 0 },
         uHigh: { value: 0 },
         uSpeed: { value: config.animationSpeed },
         uPrimary: { value: new THREE.Color(palette.primary) },
@@ -284,16 +287,8 @@ export class SynthcityScene {
     });
 
     this.ground = new THREE.Mesh(groundGeo, this.groundMaterial);
-    this.applyViewAngle(Number(params.viewAngle ?? 0.5));
+    applyViewAngle(this.ground, Number(params.viewAngle ?? 0.5));
     this.scene.add(this.ground);
-  }
-
-  /** Map viewAngle (0 = top-down, 1 = horizon) to mesh tilt + vertical offset. */
-  private applyViewAngle(viewAngle: number): void {
-    const tilt = -Math.PI * (0.5 - viewAngle * 0.35);
-    const yOffset = -1.5 + viewAngle * 1.0;
-    this.ground.rotation.x = tilt;
-    this.ground.position.y = yOffset;
   }
 
   update(bass: number, mid: number, high: number): void {
@@ -309,6 +304,7 @@ export class SynthcityScene {
     const g = this.groundMaterial.uniforms;
     g.uTime.value = time;
     g.uBass.value = bass * r;
+    g.uMid.value = mid * r;
     g.uHigh.value = high * r;
   }
 
@@ -340,7 +336,7 @@ export class SynthcityScene {
     }
     if (config.sceneParams) {
       if (config.sceneParams.viewAngle !== undefined) {
-        this.applyViewAngle(Number(config.sceneParams.viewAngle));
+        applyViewAngle(this.ground, Number(config.sceneParams.viewAngle));
       }
       if (config.sceneParams.buildingDensity !== undefined) {
         this.cityMaterial.uniforms.uDensity.value = Number(config.sceneParams.buildingDensity);
