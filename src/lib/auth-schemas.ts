@@ -28,6 +28,10 @@ export const CreateUserSchema = z.object({
   role: z.enum(['admin', 'user']).default('user'),
 });
 
+export const ChangeUsernameSchema = z.object({
+  username: usernameField,
+});
+
 export const CreateApiKeySchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
 });

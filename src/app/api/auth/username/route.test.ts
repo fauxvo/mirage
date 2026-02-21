@@ -1,0 +1,120 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/lib/auth/session', () => ({
+  verifySession: vi.fn(),
+}));
+
+vi.mock('@/db/repositories/user.repository', () => ({
+  userRepository: {
+    findByUsername: vi.fn(),
+    updateUsername: vi.fn(),
+  },
+}));
+
+import { PUT } from './route';
+import { verifySession } from '@/lib/auth/session';
+import { userRepository } from '@/db/repositories/user.repository';
+
+const mockVerifySession = vi.mocked(verifySession);
+const mockFindByUsername = vi.mocked(userRepository.findByUsername);
+const mockUpdateUsername = vi.mocked(userRepository.updateUsername);
+
+function makeRequest(body: unknown): Request {
+  return new Request('http://localhost:4444/api/auth/username', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+const session = {
+  userId: 'user-1',
+  username: 'oldname',
+  role: 'user' as const,
+  exp: Date.now() / 1000 + 3600,
+};
+
+describe('PUT /api/auth/username', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns 401 when not authenticated', async () => {
+    mockVerifySession.mockResolvedValue(null);
+
+    const res = await PUT(makeRequest({ username: 'newname' }));
+    const data = await res.json();
+    expect(res.status).toBe(401);
+    expect(data.error).toBe('Authentication required');
+  });
+
+  it('returns 400 when username is missing', async () => {
+    mockVerifySession.mockResolvedValue(session);
+
+    const res = await PUT(makeRequest({}));
+    const data = await res.json();
+    expect(res.status).toBe(400);
+    expect(data.success).toBe(false);
+  });
+
+  it('returns 400 when username is too short', async () => {
+    mockVerifySession.mockResolvedValue(session);
+
+    const res = await PUT(makeRequest({ username: 'ab' }));
+    const data = await res.json();
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/at least 3/);
+  });
+
+  it('returns 400 when username has invalid characters', async () => {
+    mockVerifySession.mockResolvedValue(session);
+
+    const res = await PUT(makeRequest({ username: 'bad name!' }));
+    const data = await res.json();
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/alphanumeric/);
+  });
+
+  it('returns success without DB call when username is unchanged', async () => {
+    mockVerifySession.mockResolvedValue(session);
+
+    const res = await PUT(makeRequest({ username: 'oldname' }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.username).toBe('oldname');
+    expect(mockFindByUsername).not.toHaveBeenCalled();
+    expect(mockUpdateUsername).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when username is already taken', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue({
+      id: 'user-2',
+      username: 'taken',
+      email: 'other@test.com',
+      passwordHash: '$2a$12$hash',
+      role: 'user',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const res = await PUT(makeRequest({ username: 'taken' }));
+    const data = await res.json();
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('Username is already taken');
+  });
+
+  it('updates username and returns success', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue(null);
+    mockUpdateUsername.mockResolvedValue(undefined);
+
+    const res = await PUT(makeRequest({ username: 'newname' }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.username).toBe('newname');
+    expect(mockUpdateUsername).toHaveBeenCalledWith('user-1', 'newname');
+  });
+});

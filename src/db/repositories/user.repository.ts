@@ -70,6 +70,10 @@ export class UserRepository {
       .where(eq(users.id, id));
   }
 
+  async updateUsername(id: string, username: string) {
+    await this.db.update(users).set({ username, updatedAt: new Date() }).where(eq(users.id, id));
+  }
+
   async countAdmins() {
     const result = await this.db
       .select({ value: drizzleCount() })
