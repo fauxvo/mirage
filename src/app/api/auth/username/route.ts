@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth/session';
+import { verifySession, createSession } from '@/lib/auth/session';
 import { ChangeUsernameSchema } from '@/lib/auth-schemas';
 import { userRepository } from '@/db/repositories/user.repository';
 
@@ -31,6 +31,7 @@ export async function PUT(request: Request) {
   }
 
   await userRepository.updateUsername(session.userId, username);
+  await createSession(session.userId, username, session.role);
 
   return NextResponse.json({ success: true, data: { username } });
 }

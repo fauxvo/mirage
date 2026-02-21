@@ -130,11 +130,12 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                         setUsernameError('');
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleUsernameSubmit();
+                        if (e.key === 'Enter') void handleUsernameSubmit();
                         if (e.key === 'Escape') handleUsernameCancel();
                       }}
                       disabled={usernameLoading}
                       autoFocus
+                      maxLength={32}
                       className="w-full max-w-[200px] px-2 py-1 bg-white/[0.04] border border-white/[0.12] rounded text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/25 transition-colors"
                     />
                     <button

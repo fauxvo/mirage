@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/auth/session', () => ({
   verifySession: vi.fn(),
+  createSession: vi.fn(),
 }));
 
 vi.mock('@/db/repositories/user.repository', () => ({
@@ -12,10 +13,11 @@ vi.mock('@/db/repositories/user.repository', () => ({
 }));
 
 import { PUT } from './route';
-import { verifySession } from '@/lib/auth/session';
+import { verifySession, createSession } from '@/lib/auth/session';
 import { userRepository } from '@/db/repositories/user.repository';
 
 const mockVerifySession = vi.mocked(verifySession);
+const mockCreateSession = vi.mocked(createSession);
 const mockFindByUsername = vi.mocked(userRepository.findByUsername);
 const mockUpdateUsername = vi.mocked(userRepository.updateUsername);
 
@@ -105,10 +107,11 @@ describe('PUT /api/auth/username', () => {
     expect(data.error).toBe('Username is already taken');
   });
 
-  it('updates username and returns success', async () => {
+  it('updates username, reissues session cookie, and returns success', async () => {
     mockVerifySession.mockResolvedValue(session);
     mockFindByUsername.mockResolvedValue(null);
     mockUpdateUsername.mockResolvedValue(undefined);
+    mockCreateSession.mockResolvedValue('new-token');
 
     const res = await PUT(makeRequest({ username: 'newname' }));
     const data = await res.json();
@@ -116,5 +119,6 @@ describe('PUT /api/auth/username', () => {
     expect(data.success).toBe(true);
     expect(data.data.username).toBe('newname');
     expect(mockUpdateUsername).toHaveBeenCalledWith('user-1', 'newname');
+    expect(mockCreateSession).toHaveBeenCalledWith('user-1', 'newname', 'user');
   });
 });
