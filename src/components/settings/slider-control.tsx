@@ -53,7 +53,7 @@ export function SliderControl({
   );
 }
 
-import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
+import type { TextureAnimation, TextureMotion, TextureTint } from '@/types/visualizer';
 
 const TEXTURE_ANIMATIONS: { value: TextureAnimation; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Static opacity' },
@@ -102,7 +102,8 @@ export function TextureAnimationPicker({
 const TEXTURE_MOTIONS: { value: TextureMotion; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'No movement' },
   { value: 'fixed', label: 'Fixed', description: 'Always faces camera during orbit' },
-  { value: 'spin', label: 'Spin', description: 'Continuous rotation' },
+  { value: 'spin', label: 'Spin', description: 'Flat rotation (clock-like)' },
+  { value: 'rotate', label: 'Rotate', description: 'Y-axis spin (revolving sign)' },
   { value: 'bounce', label: 'Bounce', description: 'Vertical bounce with squash' },
   { value: 'float', label: 'Float', description: 'Gentle figure-8 drift' },
   { value: 'swing', label: 'Swing', description: 'Pendulum rock back and forth' },
@@ -139,6 +140,61 @@ export function TextureMotionPicker({
       </div>
       <p className="mt-1 text-white/30 text-[10px]">
         {TEXTURE_MOTIONS.find((m) => m.value === value)?.description}
+      </p>
+    </section>
+  );
+}
+
+const TINT_OPTIONS: { value: TextureTint; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'accent', label: 'Accent' },
+];
+
+export function TextureTintPicker({
+  value,
+  onChange,
+  palette,
+}: {
+  value: TextureTint;
+  onChange: (v: TextureTint) => void;
+  palette: { primary: string; secondary: string; accent: string };
+}) {
+  const swatchColor = (tint: TextureTint) => {
+    if (tint === 'none') return undefined;
+    return palette[tint];
+  };
+
+  return (
+    <section>
+      <label className="block text-white/70 text-xs font-medium mb-2 uppercase tracking-wider">
+        Texture Tint
+      </label>
+      <div className="flex flex-wrap gap-1">
+        {TINT_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1.5',
+              value === opt.value
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-transparent'
+            )}
+          >
+            {swatchColor(opt.value) && (
+              <span
+                className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                style={{ backgroundColor: swatchColor(opt.value) }}
+              />
+            )}
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-white/30 text-[10px]">
+        {value === 'none' ? 'Original texture colors' : `Tinted with palette ${value} color`}
       </p>
     </section>
   );

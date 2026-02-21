@@ -80,3 +80,17 @@
 .animate-landing-drift {
   animation: landing-drift 12s ease-in-out infinite;
 }
+
+@keyframes landing-drift-reverse {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-25px, 15px);
+  }
+}
+
+.animate-landing-drift-reverse {
+  animation: landing-drift-reverse 15s ease-in-out infinite;
+}

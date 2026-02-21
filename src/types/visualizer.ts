@@ -3,7 +3,8 @@
 export type VisualizerScene = string;
 export type CameraMovement = 'static' | 'orbit' | 'drift' | 'pulse';
 export type TextureAnimation = 'none' | 'pulse' | 'breathe' | 'flash' | 'strobe';
-export type TextureMotion = 'none' | 'fixed' | 'spin' | 'bounce' | 'float' | 'swing';
+export type TextureMotion = 'none' | 'fixed' | 'spin' | 'rotate' | 'bounce' | 'float' | 'swing';
+export type TextureTint = 'none' | 'primary' | 'secondary' | 'accent';
 
 export interface VisualizerColorPalette {
   primary: string;
@@ -30,6 +31,8 @@ export interface VisualizerConfig {
   textureOpacity: number; // 0-1, opacity of the centred texture (default 1.0)
   textureAnimation: TextureAnimation; // animated opacity mode (default 'none')
   textureMotion: TextureMotion; // texture movement mode (default 'none')
+  textureTint: TextureTint; // tint texture with palette color (default 'none')
+  audioSensitivity: number; // 0.5-3.0, gain multiplier on raw mic input (default 1.0)
   patternOffsetX: number; // -1 to 1, horizontal offset of the pattern centre (starburst only, default 0)
   patternOffsetY: number; // -1 to 1, vertical offset of the pattern centre (starburst only, default 0)
 }

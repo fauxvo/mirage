@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import type { TextureAnimation, TextureMotion } from '@/types/visualizer';
+import type {
+  TextureAnimation,
+  TextureMotion,
+  TextureTint,
+  VisualizerColorPalette,
+} from '@/types/visualizer';
 
 /**
  * Compute the animated opacity value based on the selected animation mode.
@@ -43,6 +48,8 @@ export function computeAnimatedOpacity(
 
 export interface TextureMotionResult {
   rotationZ: number;
+  /** Y-axis rotation (vertical spin like a revolving sign). 0 = no rotation. */
+  rotationY: number;
   offsetX: number;
   offsetY: number;
   /**
@@ -63,11 +70,21 @@ export function computeTextureMotion(
   speed: number,
   bass: number
 ): TextureMotionResult {
-  const none: TextureMotionResult = { rotationZ: 0, offsetX: 0, offsetY: 0, extraScale: 1 };
+  const none: TextureMotionResult = {
+    rotationZ: 0,
+    rotationY: 0,
+    offsetX: 0,
+    offsetY: 0,
+    extraScale: 1,
+  };
   switch (mode) {
     case 'spin': {
-      // Continuous slow rotation
+      // Continuous slow Z-axis rotation (flat spin like a clock)
       return { ...none, rotationZ: time * speed * 0.4 };
+    }
+    case 'rotate': {
+      // Y-axis rotation (spinning sign / revolving door)
+      return { ...none, rotationY: time * speed * 0.5 };
     }
     case 'bounce': {
       // Vertical bounce with bass impact
@@ -92,6 +109,28 @@ export function computeTextureMotion(
     case 'none':
     default:
       return none;
+  }
+}
+
+/**
+ * Apply texture tint to a shader uniform based on the selected tint mode and palette.
+ * Shared across all starburst scene variants to avoid duplicated logic.
+ */
+export function applyTintToUniform(
+  uniform: { value: THREE.Color },
+  tint: TextureTint | undefined,
+  palette: VisualizerColorPalette
+): void {
+  if (!tint || tint === 'none') {
+    uniform.value.setRGB(1, 1, 1);
+  } else {
+    const hex =
+      tint === 'primary'
+        ? palette.primary
+        : tint === 'secondary'
+          ? palette.secondary
+          : palette.accent;
+    uniform.value.set(hex);
   }
 }
 

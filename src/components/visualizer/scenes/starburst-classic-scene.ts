@@ -2,14 +2,19 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, SceneUserData } from './types';
-import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
+import {
+  computeAnimatedOpacity,
+  computeTextureMotion,
+  applyFixedMotion,
+  applyTintToUniform,
+} from './starburst-utils';
 
 /**
  * Starburst Classic Scene
  *
- * The original starburst with ray pattern centre fixed in world space.
- * Sphere background ensures full coverage — no black edges. When the
- * camera orbits, the ray centre slides naturally across the screen.
+ * Vintage/retro starburst — few thick alternating bands, warm glow from
+ * center, vignette edges, subtle film-grain flicker. Feels like a carnival
+ * spotlight or old projector. Very different from the modern Starburst.
  */
 
 // --- Starburst background (fullscreen quad with ray shader) ---
@@ -33,7 +38,6 @@ const BURST_FRAGMENT = `
   uniform vec3 uSecondary;
   uniform vec3 uAccent;
   uniform vec3 uBackground;
-  uniform float uRayCount;
   uniform float uOffsetX;
   uniform float uOffsetY;
   varying vec3 vWorldDir;
@@ -48,40 +52,38 @@ const BURST_FRAGMENT = `
     float angle = atan(center.y, center.x);
     float dist = length(center);
 
-    // Rotating rays
-    float rotation = uTime * uSpeed * 0.15;
+    // Very slow rotation — vintage poster feel
+    float rotation = uTime * uSpeed * 0.03;
     float rayAngle = angle + rotation;
 
-    // Ray pattern: multiple overlapping sine waves for complexity
-    float rays = 0.0;
-    rays += sin(rayAngle * uRayCount) * 0.5 + 0.5;
-    rays += sin(rayAngle * uRayCount * 0.5 + uTime * uSpeed * 0.3) * 0.25 + 0.25;
-    rays += sin(rayAngle * uRayCount * 2.0 - uTime * uSpeed * 0.2) * 0.15 + 0.15;
+    // 6 thick alternating bands — hard step, not sine waves
+    float bandCount = 6.0;
+    float stripe = sin(rayAngle * bandCount);
+    float band = smoothstep(-0.05, 0.05, stripe); // hard edge
 
-    // Audio pulse: bass expands rays, mid brightens, high sharpens
-    float bassPulse = 1.0 + uBass * uReactivity * 0.6;
-    float midBright = 1.0 + uMid * uReactivity * 0.4;
-    float highSharp = 1.0 + uHigh * uReactivity * 0.3;
+    // Audio: bass pulses the center glow, mids warm the bands
+    float bassPulse = 1.0 + uBass * uReactivity * 0.5;
+    float midWarm = 1.0 + uMid * uReactivity * 0.3;
 
-    // Hollow center so texture is visible, but NO outer falloff — rays go to edges
-    float innerFade = smoothstep(0.0, 0.12 * bassPulse, dist);
+    // Hollow center for texture
+    float innerFade = smoothstep(0.0, 0.1 * bassPulse, dist);
 
-    // Combine: no outer fade means rays fill the entire screen
-    float rayIntensity = rays * innerFade * highSharp * midBright;
-    rayIntensity = pow(rayIntensity, 1.5);
+    // Radial glow — rays brighten from center and fade toward edges
+    float glow = 1.0 - smoothstep(0.0, 1.2, dist) * 0.5;
 
-    // Color gradient: primary near centre, secondary at mid, accent at tips
-    vec3 rayColor = mix(uPrimary, uSecondary, clamp(dist * 1.5, 0.0, 1.0));
-    rayColor = mix(rayColor, uAccent, rays * 0.3);
+    // Alternating: primary bands vs secondary bands
+    vec3 bandColor = mix(uSecondary, uPrimary, band);
+    // Warm accent glow near center
+    bandColor = mix(uAccent, bandColor, smoothstep(0.0, 0.25, dist));
 
-    // Composition: background + rays — background is ALWAYS the palette colour, never black
-    vec3 color = uBackground;
-    color = mix(color, rayColor, rayIntensity * 0.75);
+    float intensity = innerFade * glow * midWarm;
 
-    // Gentle distance-based colour enrichment so edges stay vibrant
-    vec3 edgeTint = mix(uSecondary, uAccent, sin(angle * 2.0 + uTime * uSpeed * 0.1) * 0.5 + 0.5);
-    float edgeBlend = smoothstep(0.2, 0.7, dist) * 0.3;
-    color = mix(color, edgeTint, edgeBlend * (1.0 - rayIntensity * 0.5));
+    // Compose over background
+    vec3 color = mix(uBackground, bandColor, intensity * 0.8);
+
+    // Vignette — darken edges toward background
+    float vignette = 1.0 - smoothstep(0.4, 1.5, dist) * 0.4;
+    color *= vignette;
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -108,21 +110,21 @@ const LOGO_FRAGMENT = `
   uniform float uSpeed;
   uniform vec3 uPrimary;
   uniform vec3 uAccent;
+  uniform vec3 uTintColor;
   varying vec2 vUv;
 
   void main() {
     if (uHasTexture) {
-      vec4 tex = texture2D(uTexture, vUv);
+      vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+      vec4 tex = texture2D(uTexture, uv);
 
-      // Subtle glow halo around the image
-      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
       float halo = smoothstep(0.0, 0.15, edgeDist);
 
-      // Audio breathing: gentle scale pulse baked into alpha
       float breathe = 1.0 + uBass * uReactivity * 0.08;
       float shimmer = 1.0 + uHigh * uReactivity * 0.15;
 
-      tex.rgb *= breathe * shimmer;
+      tex.rgb *= uTintColor * breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
       discard;
@@ -164,7 +166,6 @@ export class StarburstClassicScene {
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
         uBackground: { value: new THREE.Color(palette.background) },
-        uRayCount: { value: 12.0 },
         uOffsetX: { value: config.patternOffsetX ?? 0 },
         uOffsetY: { value: config.patternOffsetY ?? 0 },
       },
@@ -191,9 +192,11 @@ export class StarburstClassicScene {
         uSpeed: { value: config.animationSpeed },
         uPrimary: { value: new THREE.Color(palette.primary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        uTintColor: { value: new THREE.Color(1, 1, 1) },
       },
       transparent: true,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
     this.logoMesh = new THREE.Mesh(logoGeo, this.logoMaterial);
@@ -237,8 +240,8 @@ export class StarburstClassicScene {
       applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
     } else {
       this.logoMesh.rotation.x = 0;
-      this.logoMesh.rotation.y = 0;
       const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.rotation.y = motion.rotationY;
       this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
       this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
       this.logoMesh.rotation.z = motion.rotationZ;
@@ -266,6 +269,8 @@ export class StarburstClassicScene {
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
+    this.config = { ...this.config, ...config };
+
     if (config.colorPalette) {
       this.burstMaterial.uniforms.uPrimary.value.set(config.colorPalette.primary);
       this.burstMaterial.uniforms.uSecondary.value.set(config.colorPalette.secondary);
@@ -279,17 +284,8 @@ export class StarburstClassicScene {
       this.logoMaterial.uniforms.uSpeed.value = config.animationSpeed;
     }
     if (config.audioReactivity !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uReactivity.value = config.audioReactivity;
       this.logoMaterial.uniforms.uReactivity.value = config.audioReactivity;
-    }
-    if (
-      config.textureScale !== undefined ||
-      config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined ||
-      config.textureMotion !== undefined
-    ) {
-      this.config = { ...this.config, ...config };
     }
     if (
       config.textureOpacity !== undefined &&
@@ -298,12 +294,17 @@ export class StarburstClassicScene {
       this.logoMaterial.uniforms.uOpacity.value = config.textureOpacity;
     }
     if (config.patternOffsetX !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetX.value = config.patternOffsetX;
     }
     if (config.patternOffsetY !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetY.value = config.patternOffsetY;
+    }
+    if (config.textureTint !== undefined || config.colorPalette) {
+      applyTintToUniform(
+        this.logoMaterial.uniforms.uTintColor,
+        this.config.textureTint,
+        this.config.colorPalette
+      );
     }
   }
 
@@ -320,9 +321,9 @@ export class StarburstClassicScene {
 const METADATA: SceneRegistration = {
   id: 'starburst-classic',
   name: 'Starburst Classic',
-  description: 'Classic starburst — ray centre moves with camera orbit',
+  description: 'Vintage sunburst — thick alternating bands, warm glow, film-grain flicker',
   category: 'immersive',
-  audioDescription: 'Bass expands rays, mids brighten the glow, highs sharpen ray edges',
+  audioDescription: 'Bass pulses the center glow, mids warm the bands, subtle projector flicker',
   params: [],
   features: [
     'textureScale',

@@ -260,6 +260,8 @@ export function buildDefaultConfig(
     textureOpacity: 1.0,
     textureAnimation: 'none',
     textureMotion: 'none',
+    textureTint: 'none',
+    audioSensitivity: 1.0,
     patternOffsetX: 0,
     patternOffsetY: 0,
     sceneParams: {},

@@ -2,7 +2,12 @@ import * as THREE from 'three';
 import type { VisualizerConfig } from '@/types/visualizer';
 import { registerScene } from './scene-registry';
 import type { SceneRegistration, SceneUserData } from './types';
-import { computeAnimatedOpacity, computeTextureMotion, applyFixedMotion } from './starburst-utils';
+import {
+  computeAnimatedOpacity,
+  computeTextureMotion,
+  applyFixedMotion,
+  applyTintToUniform,
+} from './starburst-utils';
 
 /**
  * Starburst Soft Scene
@@ -92,16 +97,18 @@ const LOGO_FRAGMENT = `
   uniform float uSpeed;
   uniform vec3 uPrimary;
   uniform vec3 uAccent;
+  uniform vec3 uTintColor;
   varying vec2 vUv;
 
   void main() {
     if (uHasTexture) {
-      vec4 tex = texture2D(uTexture, vUv);
-      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+      vec4 tex = texture2D(uTexture, uv);
+      float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
       float halo = smoothstep(0.0, 0.15, edgeDist);
       float breathe = 1.0 + uBass * uReactivity * 0.06;
       float shimmer = 1.0 + uHigh * uReactivity * 0.1;
-      tex.rgb *= breathe * shimmer;
+      tex.rgb *= uTintColor * breathe * shimmer;
       gl_FragColor = vec4(tex.rgb, tex.a * halo * uOpacity);
     } else {
       discard;
@@ -167,9 +174,11 @@ export class StarburstSoftScene {
         uSpeed: { value: config.animationSpeed },
         uPrimary: { value: new THREE.Color(palette.primary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        uTintColor: { value: new THREE.Color(1, 1, 1) },
       },
       transparent: true,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
     this.logoMesh = new THREE.Mesh(logoGeo, this.logoMaterial);
@@ -209,8 +218,8 @@ export class StarburstSoftScene {
       applyFixedMotion(this.logoMesh, this.camera, offsetX, offsetY);
     } else {
       this.logoMesh.rotation.x = 0;
-      this.logoMesh.rotation.y = 0;
       const motion = computeTextureMotion(motionMode, time, this.config.animationSpeed, bass);
+      this.logoMesh.rotation.y = motion.rotationY;
       this.logoMesh.position.x = offsetX * 4.0 + motion.offsetX;
       this.logoMesh.position.y = offsetY * 4.0 + motion.offsetY;
       this.logoMesh.rotation.z = motion.rotationZ;
@@ -237,6 +246,8 @@ export class StarburstSoftScene {
   }
 
   updateConfig(config: Partial<VisualizerConfig>): void {
+    this.config = { ...this.config, ...config };
+
     if (config.colorPalette) {
       this.burstMaterial.uniforms.uPrimary.value.set(config.colorPalette.primary);
       this.burstMaterial.uniforms.uSecondary.value.set(config.colorPalette.secondary);
@@ -250,17 +261,8 @@ export class StarburstSoftScene {
       this.logoMaterial.uniforms.uSpeed.value = config.animationSpeed;
     }
     if (config.audioReactivity !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uReactivity.value = config.audioReactivity;
       this.logoMaterial.uniforms.uReactivity.value = config.audioReactivity;
-    }
-    if (
-      config.textureScale !== undefined ||
-      config.textureOpacity !== undefined ||
-      config.textureAnimation !== undefined ||
-      config.textureMotion !== undefined
-    ) {
-      this.config = { ...this.config, ...config };
     }
     if (
       config.textureOpacity !== undefined &&
@@ -269,12 +271,17 @@ export class StarburstSoftScene {
       this.logoMaterial.uniforms.uOpacity.value = config.textureOpacity;
     }
     if (config.patternOffsetX !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetX.value = config.patternOffsetX;
     }
     if (config.patternOffsetY !== undefined) {
-      this.config = { ...this.config, ...config };
       this.burstMaterial.uniforms.uOffsetY.value = config.patternOffsetY;
+    }
+    if (config.textureTint !== undefined || config.colorPalette) {
+      applyTintToUniform(
+        this.logoMaterial.uniforms.uTintColor,
+        this.config.textureTint,
+        this.config.colorPalette
+      );
     }
   }
 

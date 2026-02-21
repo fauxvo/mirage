@@ -117,19 +117,31 @@ export class RingsScene {
       texture.needsUpdate = true;
     }
     const opacity = texture ? (this.config.textureOpacity ?? 0.7) : undefined;
-    for (const mat of this.ringMaterials) {
+    for (let i = 0; i < this.ringMaterials.length; i++) {
+      const mat = this.ringMaterials[i];
       mat.map = texture;
       if (opacity !== undefined) {
         mat.opacity = opacity;
+      }
+      // Reset tint color to palette color when texture is removed
+      if (!texture) {
+        const palette = this.config.colorPalette;
+        const primary = new THREE.Color(palette.primary);
+        const secondary = new THREE.Color(palette.secondary);
+        const accent = new THREE.Color(palette.accent);
+        const t = i / this.ringCount;
+        mat.color.lerpColors(primary, i % 3 === 0 ? accent : secondary, t);
       }
       mat.needsUpdate = true;
     }
   }
 
   setTextureTransform(transform: TextureTransform): void {
+    const tc = transform.tintColor;
     for (const mat of this.ringMaterials) {
       mat.opacity = transform.opacity;
       mat.transparent = true;
+      mat.color.setRGB(tc.r, tc.g, tc.b);
       if (mat.map) {
         mat.map.rotation = transform.rotation;
         mat.map.center.set(0.5, 0.5);

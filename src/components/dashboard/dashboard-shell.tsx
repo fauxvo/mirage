@@ -124,7 +124,7 @@ export function DashboardShell({
                       : 'text-white/35 hover:text-white/55 hover:bg-white/[0.03]'
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 ${active ? 'text-white/60' : ''}`} />
+                  <item.icon className={`w-4 h-4 ${active ? 'text-teal-400/60' : ''}`} />
                   {item.label}
                   {item.adminOnly && (
                     <span className="ml-auto text-[9px] font-medium tracking-wide uppercase text-amber-400/40">
