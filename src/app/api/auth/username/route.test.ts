@@ -41,6 +41,20 @@ describe('PUT /api/auth/username', () => {
     vi.resetAllMocks();
   });
 
+  it('returns 400 for invalid JSON body', async () => {
+    mockVerifySession.mockResolvedValue(session);
+
+    const req = new Request('http://localhost:4444/api/auth/username', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'not json',
+    });
+    const res = await PUT(req);
+    const data = await res.json();
+    expect(res.status).toBe(400);
+    expect(data.error).toBe('Invalid JSON body');
+  });
+
   it('returns 401 when not authenticated', async () => {
     mockVerifySession.mockResolvedValue(null);
 
@@ -120,5 +134,17 @@ describe('PUT /api/auth/username', () => {
     expect(data.data.username).toBe('newname');
     expect(mockUpdateUsername).toHaveBeenCalledWith('user-1', 'newname');
     expect(mockCreateSession).toHaveBeenCalledWith('user-1', 'newname', 'user');
+  });
+
+  it('returns 500 when updateUsername throws', async () => {
+    mockVerifySession.mockResolvedValue(session);
+    mockFindByUsername.mockResolvedValue(null);
+    mockUpdateUsername.mockRejectedValue(new Error('SQLITE_BUSY'));
+
+    const res = await PUT(makeRequest({ username: 'newname' }));
+    const data = await res.json();
+    expect(res.status).toBe(500);
+    expect(data.error).toBe('Failed to update username');
+    expect(mockCreateSession).not.toHaveBeenCalled();
   });
 });

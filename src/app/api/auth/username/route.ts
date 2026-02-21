@@ -9,7 +9,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+  }
   const parsed = ChangeUsernameSchema.safeParse(body);
   if (!parsed.success) {
     const message = parsed.error.issues[0]?.message ?? 'Invalid input';
@@ -30,7 +35,15 @@ export async function PUT(request: Request) {
     );
   }
 
-  await userRepository.updateUsername(session.userId, username);
+  try {
+    await userRepository.updateUsername(session.userId, username);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Failed to update username' },
+      { status: 500 }
+    );
+  }
+
   await createSession(session.userId, username, session.role);
 
   return NextResponse.json({ success: true, data: { username } });

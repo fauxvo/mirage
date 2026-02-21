@@ -48,6 +48,7 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
         setUsernameError(data.error);
         return;
       }
+      setNewUsername(trimmed);
       setEditingUsername(false);
       router.refresh();
     } catch {
@@ -149,7 +150,7 @@ export function AccountSection({ username, email, role, createdAt }: AccountSect
                     <button
                       onClick={handleUsernameCancel}
                       disabled={usernameLoading}
-                      className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors"
+                      className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors disabled:opacity-50"
                       title="Cancel"
                     >
                       <X className="w-3.5 h-3.5" />
