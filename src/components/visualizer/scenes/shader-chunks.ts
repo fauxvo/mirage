@@ -57,9 +57,9 @@ export const PARTICLE_SHAPE_FN = `
     vec2 c = coord - 0.5;
     float d = length(c);
     if (shape == 1) {
-      // Star — 5-pointed via polar modulation
+      // Star — cos(angle * 5/2) gives 5 peaks over [0, 2pi]
       float angle = atan(c.y, c.x);
-      float star = cos(angle * 2.5); // 5-fold symmetry
+      float star = cos(angle * 2.5);
       float edge = 0.25 + star * 0.18;
       return smoothstep(edge + 0.04, edge - 0.04, d);
     }
@@ -108,6 +108,26 @@ export const PARTICLE_SHAPE_PARAM = {
     { label: 'Sparkle', value: 'sparkle' },
   ],
 };
+
+/** Create uParticleShape uniform value from config. */
+export function createParticleShapeUniform(config: { sceneParams?: Record<string, unknown> }) {
+  return {
+    uParticleShape: {
+      value: PARTICLE_SHAPE_INDEX[(config.sceneParams?.particleShape as string) ?? 'circle'] ?? 0,
+    },
+  };
+}
+
+/** Update uParticleShape uniform on a ShaderMaterial from sceneParams. */
+export function updateParticleShape(
+  material: THREE.ShaderMaterial,
+  sceneParams: Record<string, unknown>
+): void {
+  if (sceneParams.particleShape !== undefined) {
+    material.uniforms.uParticleShape.value =
+      PARTICLE_SHAPE_INDEX[sceneParams.particleShape as string] ?? 0;
+  }
+}
 
 // ── Texture uniforms ────────────────────────────────────────────────────────
 

@@ -6,9 +6,10 @@ import {
   TEXTURE_SAMPLE_FN,
   PARTICLE_SHAPE_UNIFORM,
   PARTICLE_SHAPE_FN,
-  PARTICLE_SHAPE_INDEX,
   PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
+  createParticleShapeUniform,
+  updateParticleShape,
   applyTextureTransform,
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
@@ -130,10 +131,7 @@ export class NebulaScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uParticleShape: {
-          value:
-            PARTICLE_SHAPE_INDEX[(config.sceneParams?.particleShape as string) ?? 'circle'] ?? 0,
-        },
+        ...createParticleShapeUniform(config),
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -169,10 +167,7 @@ export class NebulaScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
-    if (config.sceneParams?.particleShape !== undefined) {
-      this.material.uniforms.uParticleShape.value =
-        PARTICLE_SHAPE_INDEX[config.sceneParams.particleShape as string] ?? 0;
-    }
+    if (config.sceneParams) updateParticleShape(this.material, config.sceneParams);
     this.config = { ...this.config, ...config };
   }
 

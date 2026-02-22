@@ -6,9 +6,10 @@ import {
   TEXTURE_SAMPLE_FN,
   PARTICLE_SHAPE_UNIFORM,
   PARTICLE_SHAPE_FN,
-  PARTICLE_SHAPE_INDEX,
   PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
+  createParticleShapeUniform,
+  updateParticleShape,
   applyTextureTransform,
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
@@ -18,7 +19,7 @@ export class LatticeScene {
   private material: THREE.ShaderMaterial;
   private clock: THREE.Clock;
 
-  private static BASE_POINT_SIZE = 4.0;
+  private static BASE_POINT_SIZE = 3.0;
 
   private static VERTEX = `
     attribute float aPhase;
@@ -38,7 +39,7 @@ export class LatticeScene {
       vDist = length(position);
 
       // Size pulsing from center outward — dramatic with bloom
-      float pulse = 1.0 + uBass * 0.8 * sin(uTime * uSpeed + vDist * 0.8);
+      float pulse = 1.0 + uBass * 0.5 * sin(uTime * uSpeed + vDist * 0.8);
       float size = uPointSize * max(pulse, 0.3);
 
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
@@ -55,6 +56,7 @@ export class LatticeScene {
     uniform float uTime;
     uniform float uSpeed;
     uniform float uHigh;
+    uniform float uBrightness;
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
@@ -74,33 +76,37 @@ export class LatticeScene {
       vec2 center = gl_PointCoord - 0.5;
       float dist = length(center);
 
-      float shapeAlpha = particleShapeAlpha(gl_PointCoord, uParticleShape);
-      if (shapeAlpha < 0.01) discard;
+      float alpha;
+      vec4 texSample = vec4(1.0);
+      if (uHasTexture) {
+        texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        alpha = texSample.a * 0.7;
+        if (alpha < 0.01) discard;
+      } else {
+        alpha = particleShapeAlpha(gl_PointCoord, uParticleShape) * 0.7;
+        if (alpha < 0.01) discard;
+      }
 
-      float glow = exp(-dist * 4.0);
+      float glow = exp(-dist * 6.0);
 
       // HSL hue cycling based on lattice position + time
       float hue = vPhase + uTime * uSpeed * (0.05 + uHigh * 0.2);
       hue = fract(hue);
 
       // Map through palette tints
-      vec3 hslColor = hsl2rgb(hue, 0.7, 0.5 + uHigh * 0.2);
+      vec3 hslColor = hsl2rgb(hue, 0.55, 0.32 + uHigh * 0.2);
       vec3 color = mix(hslColor, uPrimary, 0.3);
 
-      // Bright accent center
-      color = mix(color, uAccent, glow * 0.6);
+      // Accent center glow
+      color = mix(color, uAccent, glow * 0.35);
 
-      // Brightness from highs
-      float brightness = 0.7 + uHigh * 0.8;
+      // Brightness from highs + user control
+      float brightness = (0.35 + uHigh * 0.7) * uBrightness;
       color *= brightness;
 
-      // Texture overlay at point coord
-      if (uHasTexture) {
-        vec4 texSample = sampleTransformedTexture(vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
-        color = mix(color, texSample.rgb, texSample.a);
-      }
+      // Subtle texture tint — 40% influence, preserves lattice color dominance
+      if (uHasTexture) color *= mix(vec3(1.0), texSample.rgb, 0.4);
 
-      float alpha = shapeAlpha * 0.85;
       gl_FragColor = vec4(color, alpha);
     }
   `;
@@ -149,13 +155,11 @@ export class LatticeScene {
         uBass: { value: 0 },
         uHigh: { value: 0 },
         uPointSize: { value: LatticeScene.BASE_POINT_SIZE },
+        uBrightness: { value: (config.sceneParams?.brightness as number) ?? 1.0 },
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
-        uParticleShape: {
-          value:
-            PARTICLE_SHAPE_INDEX[(config.sceneParams?.particleShape as string) ?? 'circle'] ?? 0,
-        },
+        ...createParticleShapeUniform(config),
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -193,10 +197,10 @@ export class LatticeScene {
       this.material.uniforms.uPointSize.value = LatticeScene.BASE_POINT_SIZE * config.textureScale;
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
-    if (config.sceneParams?.particleShape !== undefined) {
-      this.material.uniforms.uParticleShape.value =
-        PARTICLE_SHAPE_INDEX[config.sceneParams.particleShape as string] ?? 0;
+    if (config.sceneParams?.brightness !== undefined) {
+      this.material.uniforms.uBrightness.value = config.sceneParams.brightness as number;
     }
+    if (config.sceneParams) updateParticleShape(this.material, config.sceneParams);
     this.config = { ...this.config, ...config };
   }
 
@@ -233,6 +237,15 @@ const METADATA: SceneRegistration = {
       max: 1,
       step: 0.05,
       default: 0.5,
+    },
+    {
+      key: 'brightness',
+      label: 'Brightness',
+      type: 'slider',
+      min: 0.05,
+      max: 4.0,
+      step: 0.05,
+      default: 1.0,
     },
     PARTICLE_SHAPE_PARAM,
   ],

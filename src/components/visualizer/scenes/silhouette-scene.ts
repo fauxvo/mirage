@@ -26,6 +26,7 @@ const FRAGMENT_SHADER =
   uniform float uMid;
   uniform float uHigh;
   uniform float uSpeed;
+  uniform float uTunnelSpeed;
   uniform float uGlowDensity;
   uniform float uShapeScale;
   uniform float uEdgeSharpness;
@@ -71,7 +72,7 @@ const FRAGMENT_SHADER =
 
   void main() {
     vec2 uv = vUv - 0.5;
-    float t = uTime * uSpeed;
+    float t = uTime * uSpeed * uTunnelSpeed;
 
     // Ripple offset per step — mid-reactive
     float ripple = 0.08 + uMid * 0.12;
@@ -86,7 +87,11 @@ const FRAGMENT_SHADER =
     float totalT = 0.0;
     float ac = 0.0; // accumulated glow
 
+    // 99-step raymarch with glow accumulation — GPU-intensive due to
+    // per-step texture2D when a texture is loaded. Early-out when the
+    // ray has marched past the useful tiled domain.
     for (int i = 0; i < 99; i++) {
+      if (totalT > 20.0) break;
       vec3 pos = ro + ray * totalT;
       // Domain repetition — tile space [-2,2]
       pos = mod(pos - 2.0, 4.0) - 2.0;
@@ -111,7 +116,7 @@ const FRAGMENT_SHADER =
     vec3 col1 = mix(uPrimary, uSecondary, colorShift);
     vec3 col2 = mix(uSecondary, uAccent, fract(colorShift + 0.33));
 
-    vec3 color = mix(col1, col2, sin(intensity * 3.14) * 0.5 + 0.5) * intensity;
+    vec3 color = mix(col1, col2, sin(intensity * 3.14159) * 0.5 + 0.5) * intensity;
 
     // Accent highlights on bright areas
     color += uAccent * pow(intensity, 3.0) * 0.5;
@@ -149,6 +154,7 @@ export class SilhouetteScene {
         uMid: { value: 0 },
         uHigh: { value: 0 },
         uSpeed: { value: config.animationSpeed },
+        uTunnelSpeed: { value: (sp.tunnelSpeed as number) ?? 1.0 },
         uGlowDensity: { value: (sp.glowDensity as number) ?? 1.0 },
         uShapeScale: { value: (sp.shapeScale as number) ?? 1.0 },
         uEdgeSharpness: { value: (sp.edgeSharpness as number) ?? 2.0 },
@@ -187,6 +193,7 @@ export class SilhouetteScene {
     }
     if (config.sceneParams) {
       const sp = config.sceneParams;
+      if (sp.tunnelSpeed !== undefined) this.material.uniforms.uTunnelSpeed.value = sp.tunnelSpeed;
       if (sp.glowDensity !== undefined) this.material.uniforms.uGlowDensity.value = sp.glowDensity;
       if (sp.shapeScale !== undefined) this.material.uniforms.uShapeScale.value = sp.shapeScale;
       if (sp.edgeSharpness !== undefined)
@@ -218,7 +225,9 @@ const METADATA: SceneRegistration = {
   category: 'psychedelic',
   audioDescription:
     'Bass scales shape and pulses glow, mids control tunnel ripple, highs shift color',
-  features: ['textureScale', 'textureOpacity', 'textureAnimation', 'textureMotion'],
+  // Note: textureOpacity omitted — opacity only affects the color overlay, not the
+  // SDF geometry which samples texture alpha directly via texture2D().
+  features: ['textureScale', 'textureAnimation', 'textureMotion'],
   cameraHint: 'small-plane',
   params: [
     {
