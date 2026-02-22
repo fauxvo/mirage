@@ -4,6 +4,10 @@ import { registerScene } from './scene-registry';
 import {
   TEXTURE_UNIFORMS,
   TEXTURE_SAMPLE_FN,
+  PARTICLE_SHAPE_UNIFORM,
+  PARTICLE_SHAPE_FN,
+  PARTICLE_SHAPE_INDEX,
+  PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
@@ -51,6 +55,8 @@ export class StarfieldScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    ${PARTICLE_SHAPE_UNIFORM}
+    ${PARTICLE_SHAPE_FN}
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
@@ -71,9 +77,8 @@ export class StarfieldScene {
         alpha = texSample.a * (0.6 + closeness * 0.4);
         if (alpha < 0.01) discard;
       } else {
-        if (d > 0.5) discard;
-        float streak = smoothstep(0.5, 0.0, abs(center.x) * 3.0) * smoothstep(0.5, 0.0, d);
-        alpha = streak * (0.6 + closeness * 0.4);
+        alpha = particleShapeAlpha(gl_PointCoord, uParticleShape) * (0.6 + closeness * 0.4);
+        if (alpha < 0.01) discard;
       }
 
       vec3 color = mix(uSecondary, uPrimary, closeness);
@@ -121,6 +126,10 @@ export class StarfieldScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        uParticleShape: {
+          value:
+            PARTICLE_SHAPE_INDEX[(config.sceneParams?.particleShape as string) ?? 'circle'] ?? 0,
+        },
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -151,6 +160,10 @@ export class StarfieldScene {
     }
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.sceneParams?.particleShape !== undefined) {
+      this.material.uniforms.uParticleShape.value =
+        PARTICLE_SHAPE_INDEX[config.sceneParams.particleShape as string] ?? 0;
     }
     this.config = { ...this.config, ...config };
   }
@@ -188,6 +201,7 @@ const METADATA: SceneRegistration = {
       step: 0.05,
       default: 0.5,
     },
+    PARTICLE_SHAPE_PARAM,
   ],
 };
 

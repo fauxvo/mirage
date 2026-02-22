@@ -4,6 +4,10 @@ import { registerScene } from './scene-registry';
 import {
   TEXTURE_UNIFORMS,
   TEXTURE_SAMPLE_FN,
+  PARTICLE_SHAPE_UNIFORM,
+  PARTICLE_SHAPE_FN,
+  PARTICLE_SHAPE_INDEX,
+  PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
   applyTextureTransform,
 } from './shader-chunks';
@@ -46,6 +50,8 @@ export class LatticeScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    ${PARTICLE_SHAPE_UNIFORM}
+    ${PARTICLE_SHAPE_FN}
     uniform float uTime;
     uniform float uSpeed;
     uniform float uHigh;
@@ -65,12 +71,12 @@ export class LatticeScene {
     }
 
     void main() {
-      // Circular point sprite with soft glow edges
       vec2 center = gl_PointCoord - 0.5;
       float dist = length(center);
-      if (dist > 0.5) discard;
 
-      float softEdge = 1.0 - smoothstep(0.2, 0.5, dist);
+      float shapeAlpha = particleShapeAlpha(gl_PointCoord, uParticleShape);
+      if (shapeAlpha < 0.01) discard;
+
       float glow = exp(-dist * 4.0);
 
       // HSL hue cycling based on lattice position + time
@@ -94,7 +100,7 @@ export class LatticeScene {
         color = mix(color, texSample.rgb, texSample.a);
       }
 
-      float alpha = softEdge * 0.85;
+      float alpha = shapeAlpha * 0.85;
       gl_FragColor = vec4(color, alpha);
     }
   `;
@@ -146,6 +152,10 @@ export class LatticeScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        uParticleShape: {
+          value:
+            PARTICLE_SHAPE_INDEX[(config.sceneParams?.particleShape as string) ?? 'circle'] ?? 0,
+        },
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -182,6 +192,10 @@ export class LatticeScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uPointSize.value = LatticeScene.BASE_POINT_SIZE * config.textureScale;
       this.material.uniforms.uTextureScale.value = config.textureScale;
+    }
+    if (config.sceneParams?.particleShape !== undefined) {
+      this.material.uniforms.uParticleShape.value =
+        PARTICLE_SHAPE_INDEX[config.sceneParams.particleShape as string] ?? 0;
     }
     this.config = { ...this.config, ...config };
   }
@@ -220,6 +234,7 @@ const METADATA: SceneRegistration = {
       step: 0.05,
       default: 0.5,
     },
+    PARTICLE_SHAPE_PARAM,
   ],
 };
 

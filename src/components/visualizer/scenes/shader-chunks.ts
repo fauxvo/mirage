@@ -41,6 +41,76 @@ export const TEXTURE_SAMPLE_FN = `
   }
 `;
 
+// ── Particle shape GLSL ─────────────────────────────────────────────────────
+
+/** Uniform declaration for particle shape (int: 0=circle,1=star,2=diamond,3=ring,4=sparkle). */
+export const PARTICLE_SHAPE_UNIFORM = `
+  uniform int uParticleShape;
+`;
+
+/**
+ * GLSL function returning alpha for the current gl_PointCoord given a shape index.
+ * Shapes: 0=circle (soft glow), 1=star, 2=diamond, 3=ring, 4=sparkle.
+ */
+export const PARTICLE_SHAPE_FN = `
+  float particleShapeAlpha(vec2 coord, int shape) {
+    vec2 c = coord - 0.5;
+    float d = length(c);
+    if (shape == 1) {
+      // Star — 5-pointed via polar modulation
+      float angle = atan(c.y, c.x);
+      float star = cos(angle * 2.5); // 5-fold symmetry
+      float edge = 0.25 + star * 0.18;
+      return smoothstep(edge + 0.04, edge - 0.04, d);
+    }
+    if (shape == 2) {
+      // Diamond — L1 norm
+      float dd = abs(c.x) + abs(c.y);
+      return smoothstep(0.5, 0.3, dd);
+    }
+    if (shape == 3) {
+      // Ring — hollow circle
+      float ring = abs(d - 0.3);
+      return smoothstep(0.12, 0.0, ring);
+    }
+    if (shape == 4) {
+      // Sparkle — 4-pointed cross-star
+      float angle = atan(c.y, c.x);
+      float spike = pow(abs(cos(angle * 2.0)), 8.0);
+      float edge = mix(0.08, 0.45, spike);
+      return smoothstep(edge + 0.03, edge - 0.03, d);
+    }
+    // 0 = Circle — soft radial glow (default)
+    return smoothstep(0.5, 0.0, d);
+  }
+`;
+
+/** Map ParticleShape string → int for the uParticleShape uniform. */
+export const PARTICLE_SHAPE_INDEX: Record<string, number> = {
+  circle: 0,
+  star: 1,
+  diamond: 2,
+  ring: 3,
+  sparkle: 4,
+};
+
+/** The particleShape SceneParamDef shared across all particle scenes. */
+export const PARTICLE_SHAPE_PARAM = {
+  key: 'particleShape',
+  label: 'Particle Shape',
+  type: 'select' as const,
+  default: 'circle',
+  options: [
+    { label: 'Circle', value: 'circle' },
+    { label: 'Star', value: 'star' },
+    { label: 'Diamond', value: 'diamond' },
+    { label: 'Ring', value: 'ring' },
+    { label: 'Sparkle', value: 'sparkle' },
+  ],
+};
+
+// ── Texture uniforms ────────────────────────────────────────────────────────
+
 /** Standard texture uniform initial values for ShaderMaterial constructors. */
 export function createTextureUniforms(config: { textureScale?: number; textureOpacity?: number }) {
   return {
