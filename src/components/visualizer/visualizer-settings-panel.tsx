@@ -993,9 +993,9 @@ export function VisualizerSettingsPanel({
                   <SliderControl
                     label="Texture Size"
                     value={config.textureScale ?? 1.0}
-                    min={0.2}
-                    max={3}
-                    step={0.1}
+                    min={0.05}
+                    max={5}
+                    step={0.05}
                     onChange={(v) => onQuickChange({ textureScale: v })}
                   />
                 )}
