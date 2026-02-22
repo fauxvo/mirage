@@ -57,10 +57,10 @@ export const PARTICLE_SHAPE_FN = `
     vec2 c = coord - 0.5;
     float d = length(c);
     if (shape == 1) {
-      // Star — cos(angle * 5/2) gives 5 peaks over [0, 2pi]
+      // Star — cos(5*angle) gives 5 closed peaks over [0, 2pi]
       float angle = atan(c.y, c.x);
-      float star = cos(angle * 2.5);
-      float edge = 0.25 + star * 0.18;
+      float star = cos(angle * 5.0);
+      float edge = 0.25 + star * 0.15;
       return smoothstep(edge + 0.04, edge - 0.04, d);
     }
     if (shape == 2) {
@@ -80,6 +80,10 @@ export const PARTICLE_SHAPE_FN = `
       float edge = mix(0.08, 0.45, spike);
       return smoothstep(edge + 0.03, edge - 0.03, d);
     }
+    if (shape == 5) {
+      // Streak — elongated vertical ellipse for warp/flythrough
+      return smoothstep(0.5, 0.0, abs(c.x) * 3.0) * smoothstep(0.5, 0.0, d);
+    }
     // 0 = Circle — soft radial glow (default)
     return smoothstep(0.5, 0.0, d);
   }
@@ -92,6 +96,7 @@ export const PARTICLE_SHAPE_INDEX: Record<string, number> = {
   diamond: 2,
   ring: 3,
   sparkle: 4,
+  streak: 5,
 };
 
 /** The particleShape SceneParamDef shared across all particle scenes. */
@@ -106,6 +111,7 @@ export const PARTICLE_SHAPE_PARAM = {
     { label: 'Diamond', value: 'diamond' },
     { label: 'Ring', value: 'ring' },
     { label: 'Sparkle', value: 'sparkle' },
+    { label: 'Streak', value: 'streak' },
   ],
 };
 

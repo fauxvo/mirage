@@ -196,7 +196,7 @@ const METADATA: SceneRegistration = {
       step: 0.05,
       default: 0.5,
     },
-    PARTICLE_SHAPE_PARAM,
+    { ...PARTICLE_SHAPE_PARAM, default: 'streak' },
   ],
 };
 
