@@ -4,7 +4,12 @@ import { registerScene } from './scene-registry';
 import {
   TEXTURE_UNIFORMS,
   TEXTURE_SAMPLE_FN,
+  PARTICLE_SHAPE_UNIFORM,
+  PARTICLE_SHAPE_FN,
+  PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
+  createParticleShapeUniform,
+  updateParticleShape,
   applyTextureTransform,
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
@@ -81,6 +86,8 @@ export class GridScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    ${PARTICLE_SHAPE_UNIFORM}
+    ${PARTICLE_SHAPE_FN}
     uniform float uHigh;
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
@@ -101,10 +108,8 @@ export class GridScene {
         alpha = texSample.a;
         if (alpha < 0.01) discard;
       } else {
-        if (d > 0.5) discard;
-        // Soft square-ish shape for grid feel
-        float softEdge = 1.0 - smoothstep(0.3, 0.5, d);
-        alpha = softEdge * 0.9;
+        alpha = particleShapeAlpha(gl_PointCoord, uParticleShape) * 0.9;
+        if (alpha < 0.01) discard;
       }
 
       // Color sweep: primary -> secondary -> accent -> primary
@@ -174,6 +179,7 @@ export class GridScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        ...createParticleShapeUniform(config),
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -219,6 +225,7 @@ export class GridScene {
         config.sceneParams.wavePattern as string
       );
     }
+    if (config.sceneParams) updateParticleShape(this.material, config.sceneParams);
     this.config = { ...this.config, ...config };
   }
 
@@ -278,6 +285,7 @@ const METADATA: SceneRegistration = {
       ],
       default: 'diagonal',
     },
+    PARTICLE_SHAPE_PARAM,
   ],
 };
 

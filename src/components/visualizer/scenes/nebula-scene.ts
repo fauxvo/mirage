@@ -4,7 +4,12 @@ import { registerScene } from './scene-registry';
 import {
   TEXTURE_UNIFORMS,
   TEXTURE_SAMPLE_FN,
+  PARTICLE_SHAPE_UNIFORM,
+  PARTICLE_SHAPE_FN,
+  PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
+  createParticleShapeUniform,
+  updateParticleShape,
   applyTextureTransform,
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
@@ -47,6 +52,8 @@ export class NebulaScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    ${PARTICLE_SHAPE_UNIFORM}
+    ${PARTICLE_SHAPE_FN}
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
@@ -67,8 +74,8 @@ export class NebulaScene {
         alpha = texSample.a;
         if (alpha < 0.01) discard;
       } else {
-        if (d > 0.5) discard;
-        alpha = smoothstep(0.5, 0.0, d) * 0.6;
+        alpha = particleShapeAlpha(gl_PointCoord, uParticleShape) * 0.6;
+        if (alpha < 0.01) discard;
       }
 
       float colorMix = sin(vPhase * 6.28 + uTime * uSpeed * 0.2 + uMid * 2.0) * 0.5 + 0.5;
@@ -124,6 +131,7 @@ export class NebulaScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        ...createParticleShapeUniform(config),
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -159,6 +167,7 @@ export class NebulaScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
+    if (config.sceneParams) updateParticleShape(this.material, config.sceneParams);
     this.config = { ...this.config, ...config };
   }
 
@@ -195,6 +204,7 @@ const METADATA: SceneRegistration = {
       step: 0.05,
       default: 0.5,
     },
+    PARTICLE_SHAPE_PARAM,
   ],
 };
 

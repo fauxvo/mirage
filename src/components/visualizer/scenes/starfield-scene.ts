@@ -4,7 +4,12 @@ import { registerScene } from './scene-registry';
 import {
   TEXTURE_UNIFORMS,
   TEXTURE_SAMPLE_FN,
+  PARTICLE_SHAPE_UNIFORM,
+  PARTICLE_SHAPE_FN,
+  PARTICLE_SHAPE_PARAM,
   createTextureUniforms,
+  createParticleShapeUniform,
+  updateParticleShape,
   applyTextureTransform,
 } from './shader-chunks';
 import type { SceneRegistration, TextureTransform } from './types';
@@ -51,6 +56,8 @@ export class StarfieldScene {
   private static FRAGMENT = `
     ${TEXTURE_UNIFORMS}
     ${TEXTURE_SAMPLE_FN}
+    ${PARTICLE_SHAPE_UNIFORM}
+    ${PARTICLE_SHAPE_FN}
     uniform vec3 uPrimary;
     uniform vec3 uSecondary;
     uniform vec3 uAccent;
@@ -71,9 +78,8 @@ export class StarfieldScene {
         alpha = texSample.a * (0.6 + closeness * 0.4);
         if (alpha < 0.01) discard;
       } else {
-        if (d > 0.5) discard;
-        float streak = smoothstep(0.5, 0.0, abs(center.x) * 3.0) * smoothstep(0.5, 0.0, d);
-        alpha = streak * (0.6 + closeness * 0.4);
+        alpha = particleShapeAlpha(gl_PointCoord, uParticleShape) * (0.6 + closeness * 0.4);
+        if (alpha < 0.01) discard;
       }
 
       vec3 color = mix(uSecondary, uPrimary, closeness);
@@ -121,6 +127,7 @@ export class StarfieldScene {
         uPrimary: { value: new THREE.Color(palette.primary) },
         uSecondary: { value: new THREE.Color(palette.secondary) },
         uAccent: { value: new THREE.Color(palette.accent) },
+        ...createParticleShapeUniform(config),
         ...createTextureUniforms(config),
       },
       transparent: true,
@@ -152,6 +159,7 @@ export class StarfieldScene {
     if (config.textureScale !== undefined) {
       this.material.uniforms.uTextureScale.value = config.textureScale;
     }
+    if (config.sceneParams) updateParticleShape(this.material, config.sceneParams);
     this.config = { ...this.config, ...config };
   }
 
@@ -188,6 +196,7 @@ const METADATA: SceneRegistration = {
       step: 0.05,
       default: 0.5,
     },
+    { ...PARTICLE_SHAPE_PARAM, default: 'streak' },
   ],
 };
 

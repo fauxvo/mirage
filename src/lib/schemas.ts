@@ -20,7 +20,7 @@ export const VisualizerConfigSchema = z.object({
   depth: z.number().min(0).max(1),
   colorCycleSpeed: z.number().min(0).max(2),
   customTextureUrl: z.string().nullable(),
-  textureScale: z.number().min(0.2).max(3),
+  textureScale: z.number().min(0.05).max(5),
   textureOpacity: z.number().min(0).max(1),
   textureAnimation: z.enum(['none', 'pulse', 'breathe', 'flash', 'strobe']),
   textureMotion: z
