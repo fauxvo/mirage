@@ -20,6 +20,7 @@ import './orb-scene';
 import './particle-scene';
 import './rings-scene';
 import './sacredgeo-scene';
+import './silhouette-scene';
 import './starburst-classic-scene';
 import './starburst-scene';
 import './starburst-sharp-scene';
