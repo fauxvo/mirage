@@ -328,6 +328,7 @@ export function VisualizerSettingsPanel({
       sceneParams,
       // Preserve texture/pattern
       customTextureUrl: config.customTextureUrl,
+      videoUrl: config.videoUrl,
       textureScale: config.textureScale,
       textureOpacity: config.textureOpacity,
       textureAnimation: config.textureAnimation,

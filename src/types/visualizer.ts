@@ -27,6 +27,7 @@ export interface VisualizerConfig {
   colorCycleSpeed: number; // 0-2, how fast colors shift over time
   sceneParams?: Record<string, number | boolean | string>;
   customTextureUrl: string | null; // base64 data URL for custom texture
+  videoUrl: string | null; // URL to video file for video scene
   textureScale: number; // 0.2-3.0, scale of the centred texture (default 1.0)
   textureOpacity: number; // 0-1, opacity of the centred texture (default 1.0)
   textureAnimation: TextureAnimation; // animated opacity mode (default 'none')
