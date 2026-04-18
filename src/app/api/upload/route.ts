@@ -33,16 +33,23 @@ export async function POST(request: NextRequest) {
     return errorResponse('No file provided', 400);
   }
 
-  if (!file.type.startsWith('image/')) {
-    return errorResponse('File must be an image', 400);
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+
+  if (!isImage && !isVideo) {
+    return errorResponse('File must be an image or video', 400);
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return errorResponse('File must be under 10MB', 400);
+  const maxSize = isVideo ? 250 * 1024 * 1024 : 10 * 1024 * 1024;
+  const maxLabel = isVideo ? '250MB' : '10MB';
+
+  if (file.size > maxSize) {
+    return errorResponse(`File must be under ${maxLabel}`, 400);
   }
 
-  const ext = file.type.split('/')[1] || 'png';
-  const key = `textures/${setId}/${nanoid(8)}.${ext}`;
+  const ext = file.type.split('/')[1] || (isVideo ? 'mp4' : 'png');
+  const prefix = isVideo ? 'videos' : 'textures';
+  const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const url = await uploadTexture(key, buffer, file.type);
