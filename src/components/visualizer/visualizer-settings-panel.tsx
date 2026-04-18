@@ -107,8 +107,13 @@ export function VisualizerSettingsPanel({
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoFileName, setVideoFileName] = useState<string | null>(() => {
-    // Extract filename from URL if video is already loaded (e.g. after navigation)
+  // User-provided filename from the last upload in this session
+  const [videoFileNameOverride, setVideoFileNameOverride] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  // Derive display name: session override > extracted from URL > fallback
+  const videoDisplayName = (() => {
+    if (videoFileNameOverride && config.videoUrl) return videoFileNameOverride;
     if (config.videoUrl && !config.videoUrl.startsWith('blob:')) {
       try {
         const path = new URL(config.videoUrl, 'https://x').pathname;
@@ -118,8 +123,7 @@ export function VisualizerSettingsPanel({
       }
     }
     return null;
-  });
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  })();
   const [showCustomColors, setShowCustomColors] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -344,12 +348,12 @@ export function VisualizerSettingsPanel({
         setVideoUploadProgress(0);
         const url = await uploadWithProgress(file);
         onQuickChange({ videoUrl: url });
-        setVideoFileName(file.name);
+        setVideoFileNameOverride(file.name);
       } else {
         // Local playback via object URL (won't persist across reloads)
         const objectUrl = URL.createObjectURL(file);
         onQuickChange({ videoUrl: objectUrl });
-        setVideoFileName(file.name);
+        setVideoFileNameOverride(file.name);
       }
     } catch (err) {
       setVideoError(err instanceof Error ? err.message : 'Failed to upload video');
@@ -364,7 +368,7 @@ export function VisualizerSettingsPanel({
   const handleRemoveVideo = () => {
     onQuickChange({ videoUrl: null });
     setVideoError(null);
-    setVideoFileName(null);
+    setVideoFileNameOverride(null);
   };
 
   const handleCopyUrl = async () => {
@@ -1037,17 +1041,26 @@ export function VisualizerSettingsPanel({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/10">
                       <div className="flex-1 text-white/70 text-xs truncate">
-                        {videoFileName ?? 'Video loaded'}
+                        {videoDisplayName ?? 'Video loaded'}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => videoInputRef.current?.click()}
                         disabled={videoUploading}
-                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                       >
-                        <Upload className="w-3 h-3" />
-                        Replace
+                        {videoUploading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {videoUploadProgress > 0 ? `${videoUploadProgress}%` : '...'}
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3 h-3" />
+                            Replace
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={handleRemoveVideo}

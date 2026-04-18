@@ -47,7 +47,14 @@ export async function POST(request: NextRequest) {
     return errorResponse(`File must be under ${maxLabel}`, 400);
   }
 
-  const ext = file.type.split('/')[1] || (isVideo ? 'mp4' : 'png');
+  // Map MIME subtypes that don't match file extensions (e.g. video/quicktime → .mov)
+  const MIME_EXT: Record<string, string> = {
+    quicktime: 'mov',
+    'x-matroska': 'mkv',
+    'x-msvideo': 'avi',
+  };
+  const rawExt = file.type.split('/')[1] || (isVideo ? 'mp4' : 'png');
+  const ext = MIME_EXT[rawExt] ?? rawExt;
   const prefix = isVideo ? 'videos' : 'textures';
   const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
 

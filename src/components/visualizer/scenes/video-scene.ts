@@ -10,7 +10,7 @@ export class VideoScene {
   private videoTexture: THREE.VideoTexture | null = null;
   private objectUrl: string | null = null;
   private config: VisualizerConfig;
-  private renderer: THREE.WebGLRenderer;
+  private renderer: THREE.WebGLRenderer | undefined;
   private _sizeVec = new THREE.Vector2();
 
   constructor(
@@ -20,7 +20,7 @@ export class VideoScene {
     renderer?: THREE.WebGLRenderer
   ) {
     this.config = config;
-    this.renderer = renderer!;
+    this.renderer = renderer;
 
     // Create hidden video element
     this.video = document.createElement('video');
@@ -60,8 +60,12 @@ export class VideoScene {
     this.video.src = url;
     this.video.load();
     this.video.play().catch(() => {
-      // Autoplay may be blocked — mute and retry
+      // Autoplay blocked — mute and retry. Log a warning since the audio toggle
+      // state in sceneParams may now disagree with the actual muted state.
       this.video.muted = true;
+      console.warn(
+        '[mirage] Autoplay blocked — video muted automatically. Toggle audio off and on to retry.'
+      );
       this.video.play().catch(() => {});
     });
   }
