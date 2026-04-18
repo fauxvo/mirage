@@ -104,6 +104,9 @@ export function VisualizerSettingsPanel({
   const [textureUploading, setTextureUploading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [showCustomColors, setShowCustomColors] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -267,6 +270,44 @@ export function VisualizerSettingsPanel({
   const handleRemoveTexture = () => {
     onQuickChange({ customTextureUrl: null });
     setTextureError(null);
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoError(null);
+
+    if (!file.type.startsWith('video/')) {
+      setVideoError('Please select a video file');
+      return;
+    }
+    if (file.size > 250 * 1024 * 1024) {
+      setVideoError('Video must be under 250MB');
+      return;
+    }
+
+    try {
+      if (storageAvailable && setId) {
+        setVideoUploading(true);
+        const url = await uploadToStorage(file);
+        onQuickChange({ videoUrl: url });
+      } else {
+        // Local playback via object URL (won't persist across reloads)
+        const objectUrl = URL.createObjectURL(file);
+        onQuickChange({ videoUrl: objectUrl });
+      }
+    } catch (err) {
+      setVideoError(err instanceof Error ? err.message : 'Failed to upload video');
+    } finally {
+      setVideoUploading(false);
+    }
+
+    e.target.value = '';
+  };
+
+  const handleRemoveVideo = () => {
+    onQuickChange({ videoUrl: null });
+    setVideoError(null);
   };
 
   const handleCopyUrl = async () => {
@@ -923,69 +964,132 @@ export function VisualizerSettingsPanel({
               return null;
             })}
 
-            {/* Custom Texture */}
-            <section>
-              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
-                Custom Texture
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleTextureUpload}
-                className="hidden"
-              />
-              {config.customTextureUrl ? (
-                <div className="space-y-2">
-                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={config.customTextureUrl}
-                      alt="Custom texture"
-                      className="w-full h-full object-contain"
-                    />
+            {config.scene === 'video' ? (
+              <section>
+                <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
+                  Video
+                </label>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                {config.videoUrl ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex-1 text-white/70 text-xs truncate">Video loaded</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => videoInputRef.current?.click()}
+                        disabled={videoUploading}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleRemoveVideo}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Upload className="w-3 h-3" />
-                      Replace
-                    </button>
-                    <button
-                      onClick={handleRemoveTexture}
-                      className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Remove
-                    </button>
+                ) : (
+                  <button
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={videoUploading}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {videoUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading video...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload Video
+                      </>
+                    )}
+                  </button>
+                )}
+                {videoError && <p className="mt-1 text-red-400 text-[10px]">{videoError}</p>}
+                {!storageAvailable && config.videoUrl && (
+                  <p className="mt-1 text-yellow-400/70 text-[10px]">
+                    Local playback only — S3 required for persistent video storage
+                  </p>
+                )}
+              </section>
+            ) : (
+              <section>
+                {/* Custom Texture */}
+                <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
+                  Custom Texture
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleTextureUpload}
+                  className="hidden"
+                />
+                {config.customTextureUrl ? (
+                  <div className="space-y-2">
+                    <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={config.customTextureUrl}
+                        alt="Custom texture"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleRemoveTexture}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={textureUploading}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {textureUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Upload Image (logo, photo, etc.)
-                    </>
-                  )}
-                </button>
-              )}
-              {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
-              <p className="mt-1 text-white/30 text-[10px]">
-                Applied as texture across all scenes. Large images auto-optimized.
-              </p>
-            </section>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={textureUploading}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {textureUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload Image (logo, photo, etc.)
+                      </>
+                    )}
+                  </button>
+                )}
+                {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
+                <p className="mt-1 text-white/30 text-[10px]">
+                  Applied as texture across all scenes. Large images auto-optimized.
+                </p>
+              </section>
+            )}
 
             {/* Texture controls — only features the active scene declares */}
             {config.customTextureUrl && (
