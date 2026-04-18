@@ -26,8 +26,9 @@ export function isS3Configured(): boolean {
 
 export async function uploadTexture(
   key: string,
-  body: Buffer,
-  contentType: string
+  body: Buffer | Uint8Array | ReadableStream,
+  contentType: string,
+  contentLength?: number
 ): Promise<string> {
   const client = getS3Client();
   if (!client) throw new Error('S3 not configured');
@@ -39,6 +40,7 @@ export async function uploadTexture(
       Key: key,
       Body: body,
       ContentType: contentType,
+      ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
     })
   );
 

@@ -51,6 +51,12 @@ export class VideoScene {
   }
 
   private loadVideo(url: string): void {
+    // Revoke previous object URL if we were tracking one
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+    }
+    this.objectUrl = url.startsWith('blob:') ? url : null;
+
     this.video.src = url;
     this.video.load();
     this.video.play().catch(() => {

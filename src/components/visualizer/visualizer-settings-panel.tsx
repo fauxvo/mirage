@@ -107,7 +107,18 @@ export function VisualizerSettingsPanel({
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoFileName, setVideoFileName] = useState<string | null>(null);
+  const [videoFileName, setVideoFileName] = useState<string | null>(() => {
+    // Extract filename from URL if video is already loaded (e.g. after navigation)
+    if (config.videoUrl && !config.videoUrl.startsWith('blob:')) {
+      try {
+        const path = new URL(config.videoUrl, 'https://x').pathname;
+        return path.split('/').pop() ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [showCustomColors, setShowCustomColors] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);

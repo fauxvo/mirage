@@ -49,3 +49,6 @@ coverage/
 
 # reference screenshots
 *-hero.png
+
+# serena
+.serena/
