@@ -357,3 +357,31 @@ S3_PUBLIC_URL=                 # Public URL for direct texture serving (bypasses
 - **Port**: 4444 (configurable in docker-compose)
 - **Data**: Mount `./data/` for persistent SQLite database
 - **S3**: Optional — configure env vars for texture storage
+
+## Design Context
+
+### Users
+
+VJs and live performers using Mirage at events, clubs, and live shows with projectors. They operate in dark environments, often under time pressure, and need controls that are findable but never distracting from the visuals. The interface is a tool — it should get out of the way the moment it's not needed.
+
+### Brand Personality
+
+**Technical, precise, clean.** Mirage is an instrument, not a toy. The UI communicates competence and control without unnecessary decoration. Every element earns its place.
+
+### Aesthetic Direction
+
+- **Dark-only** — pure black backgrounds (`bg-black`), surface layers at `#0a0a0a`, `#141414`, `#1e1e1e`
+- **Low-opacity text hierarchy** — labels at `white/30`–`white/40`, body text at `white/50`–`white/70`, headings at `white/90`–`white`
+- **Minimal chrome** — no visible borders unless functional (dashed for drop targets, `white/10` for subtle separation)
+- **Compact controls** — `text-xs` and `text-[10px]` for labels, tight spacing, dense but readable
+- **No color in UI controls** — color belongs to the visualizations and palettes, not the interface. UI uses white/opacity. Exceptions: red for errors/destructive actions, accent sparingly for active states
+- **Smooth, fast transitions** — `transition-colors`, 200ms slide-ins, nothing slow or bouncy
+- **Icons from lucide-react** — 3–4px size classes (`w-3 h-3`, `w-4 h-4`), never decorative
+
+### Design Principles
+
+1. **Visuals first, controls second** — The visualizer is the product. UI panels, overlays, and controls should recede when not in use and never compete with the scene for attention.
+2. **Density over spaciousness** — VJs need many controls accessible without scrolling. Prefer compact, information-dense layouts over generous whitespace. Every pixel of panel space is valuable.
+3. **Instant feedback** — Every interaction should produce an immediate, visible result. No loading spinners where avoidable. Config changes apply in real-time.
+4. **Consistent restraint** — Use the same small set of patterns everywhere: `white/opacity` for text, `bg-white/5` and `bg-white/10` for surfaces, `rounded-lg` for containers. Resist adding new visual elements.
+5. **Dark room legibility** — All text must be readable in a dark environment without being bright enough to distract. The `white/30`–`white/70` range is the sweet spot.
