@@ -43,7 +43,7 @@ export function CueSwitcherBar({
     >
       <Link
         href="/dashboard"
-        className="shrink-0 p-1.5 rounded-full text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors"
+        className="shrink-0 p-1.5 rounded-full text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
         title="Back to Dashboard"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
@@ -56,7 +56,7 @@ export function CueSwitcherBar({
           key={cue.id}
           onClick={() => onSwitchCue(cue.id)}
           className={cn(
-            'shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap',
+            'shrink-0 px-3 py-2 min-h-[44px] rounded-full text-xs font-medium transition-all whitespace-nowrap',
             cue.id === activeCueId
               ? 'bg-white/20 text-white border border-white/30'
               : 'text-white/50 hover:text-white/80 hover:bg-white/10 border border-transparent'

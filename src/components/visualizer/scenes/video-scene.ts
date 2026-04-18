@@ -11,6 +11,7 @@ export class VideoScene {
   private objectUrl: string | null = null;
   private config: VisualizerConfig;
   private renderer: THREE.WebGLRenderer;
+  private _sizeVec = new THREE.Vector2();
 
   constructor(
     private scene: THREE.Scene,
@@ -40,6 +41,7 @@ export class VideoScene {
 
     // Listen for video metadata to adjust plane aspect ratio
     this.video.addEventListener('loadedmetadata', this.handleVideoReady);
+    this.video.addEventListener('error', this.handleVideoError);
     window.addEventListener('resize', this.handleResize);
 
     // Load video if URL is present
@@ -57,6 +59,13 @@ export class VideoScene {
       this.video.play().catch(() => {});
     });
   }
+
+  private handleVideoError = (): void => {
+    const error = this.video.error;
+    console.warn(
+      `[mirage] Video failed to load: ${error?.message ?? 'unknown error'} (code ${error?.code})`
+    );
+  };
 
   private handleVideoReady = (): void => {
     // Create VideoTexture from the loaded video
@@ -87,7 +96,7 @@ export class VideoScene {
     if (!this.video.videoWidth || !this.video.videoHeight) return;
     if (!this.renderer) return;
 
-    const rendererSize = this.renderer.getSize(new THREE.Vector2());
+    const rendererSize = this.renderer.getSize(this._sizeVec);
     const screenAspect = rendererSize.x / rendererSize.y;
     const videoAspect = this.video.videoWidth / this.video.videoHeight;
 
@@ -140,6 +149,7 @@ export class VideoScene {
   dispose(): void {
     window.removeEventListener('resize', this.handleResize);
     this.video.removeEventListener('loadedmetadata', this.handleVideoReady);
+    this.video.removeEventListener('error', this.handleVideoError);
     this.video.pause();
     this.video.removeAttribute('src');
     this.video.load(); // Release media resources

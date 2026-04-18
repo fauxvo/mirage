@@ -75,7 +75,7 @@ export default function Home() {
 
         {/* Scene categories */}
         <div className="mb-20">
-          <p className="text-[10px] font-medium tracking-[0.2em] uppercase text-white/15 text-center mb-5">
+          <p className="text-[10px] font-medium tracking-[0.2em] uppercase text-white/35 text-center mb-5">
             Scene Categories
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2.5">
