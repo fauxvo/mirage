@@ -51,14 +51,9 @@ export async function POST(request: NextRequest) {
   const prefix = isVideo ? 'videos' : 'textures';
   const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
 
-  // Stream video files to S3 to avoid buffering up to 250MB in memory
-  let url: string;
-  if (isVideo) {
-    url = await uploadTexture(key, file.stream(), file.type, file.size);
-  } else {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    url = await uploadTexture(key, buffer, file.type);
-  }
+  // Use Uint8Array directly to avoid an extra Buffer copy
+  const body = new Uint8Array(await file.arrayBuffer());
+  const url = await uploadTexture(key, body, file.type, file.size);
 
   // Optionally persist textureUrl to a specific cue
   const cueId = request.headers.get('x-cue-id');
