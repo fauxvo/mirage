@@ -30,6 +30,7 @@ import './synthcity-scene';
 import './terrain-scene';
 import './tunnel-scene';
 import './vaporwave-scene';
+import './video-scene';
 import './voronoi-scene';
 import './vortex-scene';
 import './waveform-scene';

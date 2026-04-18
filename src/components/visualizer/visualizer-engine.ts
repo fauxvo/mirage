@@ -231,7 +231,13 @@ export class VisualizerEngine {
       mul !== 1
         ? { ...this.config, animationSpeed: this.config.animationSpeed * mul }
         : this.config;
-    this.sceneHandler = createScene(sceneType, this.scene, effectiveConfig);
+    this.sceneHandler = createScene(
+      sceneType,
+      this.scene,
+      effectiveConfig,
+      this.camera,
+      this.renderer
+    );
 
     // Pass cached texture to new scene
     if (this.customTexture && this.sceneHandler) {
