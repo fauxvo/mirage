@@ -111,6 +111,13 @@ export function VisualizerSettingsPanel({
   const [videoFileNameOverride, setVideoFileNameOverride] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
+  // Reset filename override when videoUrl changes (e.g. cue switch)
+  const prevVideoUrl = useRef(config.videoUrl);
+  if (config.videoUrl !== prevVideoUrl.current) {
+    prevVideoUrl.current = config.videoUrl;
+    setVideoFileNameOverride(null);
+  }
+
   // Derive display name: session override > extracted from URL > fallback
   const videoDisplayName = (() => {
     if (videoFileNameOverride && config.videoUrl) return videoFileNameOverride;
