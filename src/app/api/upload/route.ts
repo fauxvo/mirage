@@ -64,7 +64,13 @@ export async function POST(request: NextRequest) {
   // AWS SDK v3 needs the full body to compute the SHA-256 signing hash.
   // ReadableStream was tried (c76459c) and failed.
   const body = new Uint8Array(await file.arrayBuffer());
-  const url = await uploadTexture(key, body, file.type, file.size);
+
+  let url: string;
+  try {
+    url = await uploadTexture(key, body, file.type, file.size);
+  } catch {
+    return errorResponse('Upload failed', 500);
+  }
 
   // Optionally persist textureUrl to a specific cue
   const cueId = request.headers.get('x-cue-id');

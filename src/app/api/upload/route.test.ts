@@ -209,12 +209,13 @@ describe('POST /api/upload', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 500-level error when uploadTexture throws', async () => {
+  it('returns 500 when uploadTexture throws', async () => {
     mockUploadTexture.mockRejectedValue(new Error('S3 connection refused'));
     const file = makeFile('test.png', 'image/png');
-    await expect(POST(makeRequest(file, { 'x-set-id': 'set-1' }))).rejects.toThrow(
-      'S3 connection refused'
-    );
+    const res = await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
+    const data = await res.json();
+    expect(res.status).toBe(500);
+    expect(data.error).toContain('Upload failed');
   });
 
   it('updates cue textureUrl when x-cue-id header is present', async () => {

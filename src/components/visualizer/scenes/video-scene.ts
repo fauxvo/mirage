@@ -72,9 +72,15 @@ export class VideoScene {
     this.video.src = url;
     this.video.load();
     this.video.play().catch(() => {
-      // Autoplay blocked — mute and retry. Log a warning since the audio toggle
-      // state in sceneParams may now disagree with the actual muted state.
+      // Autoplay blocked — mute and retry. The settings panel toggle may still
+      // show "on" until the user toggles it (no callback to sync UI state).
+      // Toggling audio off then on will unmute since the toggle click provides
+      // the user-gesture required by autoplay policies.
       this.video.muted = true;
+      this.config = {
+        ...this.config,
+        sceneParams: { ...this.config.sceneParams, audioEnabled: false },
+      };
       console.warn(
         '[mirage] Autoplay blocked — video muted automatically. Toggle audio off and on to retry.'
       );
