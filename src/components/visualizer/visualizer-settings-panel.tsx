@@ -1121,7 +1121,7 @@ export function VisualizerSettingsPanel({
                   </button>
                 )}
                 {videoError && <p className="mt-1 text-red-400 text-[10px]">{videoError}</p>}
-                {!storageAvailable && config.videoUrl && (
+                {!storageAvailable && config.videoUrl?.startsWith('blob:') && (
                   <p className="mt-1 text-yellow-400/70 text-[10px]">
                     Local playback only — S3 required for persistent video storage
                   </p>
