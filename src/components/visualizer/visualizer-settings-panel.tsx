@@ -110,11 +110,19 @@ export function VisualizerSettingsPanel({
   // User-provided filename from the last upload in this session
   const [videoFileNameOverride, setVideoFileNameOverride] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const videoXhrRef = useRef<XMLHttpRequest | null>(null);
 
   // Reset filename override when videoUrl changes (e.g. cue switch)
   useEffect(() => {
     setVideoFileNameOverride(null);
   }, [config.videoUrl]);
+
+  // Abort in-flight video upload on unmount
+  useEffect(() => {
+    return () => {
+      videoXhrRef.current?.abort();
+    };
+  }, []);
 
   // Derive display name: session override > extracted from URL > fallback
   const videoDisplayName = (() => {
@@ -303,6 +311,7 @@ export function VisualizerSettingsPanel({
       const formData = new FormData();
       formData.append('file', file);
       const xhr = new XMLHttpRequest();
+      videoXhrRef.current = xhr;
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           setVideoUploadProgress(Math.round((e.loaded / e.total) * 100));
@@ -327,6 +336,10 @@ export function VisualizerSettingsPanel({
       });
       xhr.addEventListener('error', () => reject(new Error('Upload failed')));
       xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+      xhr.addEventListener('loadend', () => {
+        videoXhrRef.current = null;
+      });
       xhr.open('POST', '/api/upload');
       xhr.timeout = 15 * 60 * 1000; // 15 minutes for large video uploads
       xhr.setRequestHeader('x-set-id', setId);

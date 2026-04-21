@@ -136,6 +136,30 @@ describe('POST /api/upload', () => {
     );
   });
 
+  it('maps video/x-matroska to .mkv extension', async () => {
+    const file = makeFile('clip.mkv', 'video/x-matroska');
+    mockUploadTexture.mockResolvedValue('https://s3.example.com/videos/set-1/abc12345.mkv');
+    await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
+    expect(mockUploadTexture).toHaveBeenCalledWith(
+      'videos/set-1/abc12345.mkv',
+      expect.any(Uint8Array),
+      'video/x-matroska',
+      expect.any(Number)
+    );
+  });
+
+  it('maps video/x-msvideo to .avi extension', async () => {
+    const file = makeFile('clip.avi', 'video/x-msvideo');
+    mockUploadTexture.mockResolvedValue('https://s3.example.com/videos/set-1/abc12345.avi');
+    await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
+    expect(mockUploadTexture).toHaveBeenCalledWith(
+      'videos/set-1/abc12345.avi',
+      expect.any(Uint8Array),
+      'video/x-msvideo',
+      expect.any(Number)
+    );
+  });
+
   it('returns 400 when x-set-id header is missing', async () => {
     const file = makeFile('test.png', 'image/png');
     const res = await POST(makeRequest(file));

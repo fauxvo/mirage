@@ -154,6 +154,7 @@ export class VideoScene {
       } else {
         this.video.pause();
         this.video.removeAttribute('src');
+        this.video.load(); // Reset network state (abort in-progress fetch)
         this.material.map = null;
         this.material.color.set(0x000000);
         this.material.needsUpdate = true;

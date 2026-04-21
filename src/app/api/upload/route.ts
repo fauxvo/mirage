@@ -6,6 +6,13 @@ import { setRepository } from '@/db/repositories/set.repository';
 import { cueRepository } from '@/db/repositories/cue.repository';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
+/** Map MIME subtypes that don't match file extensions (e.g. video/quicktime → .mov) */
+const MIME_EXT: Record<string, string> = {
+  quicktime: 'mov',
+  'x-matroska': 'mkv',
+  'x-msvideo': 'avi',
+};
+
 export async function POST(request: NextRequest) {
   const { session, error } = await requireAuth();
   if (error) return error;
@@ -47,21 +54,15 @@ export async function POST(request: NextRequest) {
     return errorResponse(`File must be under ${maxLabel}`, 400);
   }
 
-  // Map MIME subtypes that don't match file extensions (e.g. video/quicktime → .mov)
-  const MIME_EXT: Record<string, string> = {
-    quicktime: 'mov',
-    'x-matroska': 'mkv',
-    'x-msvideo': 'avi',
-  };
   const rawExt = file.type.split('/')[1] || (isVideo ? 'mp4' : 'png');
   const ext = MIME_EXT[rawExt] ?? rawExt;
   const prefix = isVideo ? 'videos' : 'textures';
   const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
 
-  // Uint8Array is required — AWS SDK v3 needs the full body to compute the
-  // SHA-256 signing hash. ReadableStream was tried (c76459c) and failed.
-  // For truly large files, @aws-sdk/lib-storage (multipart upload) would avoid
-  // buffering, but that's a separate enhancement.
+  // TODO: Use @aws-sdk/lib-storage multipart upload to avoid buffering large
+  // files (up to 250MB) in memory. Uint8Array is required for now because
+  // AWS SDK v3 needs the full body to compute the SHA-256 signing hash.
+  // ReadableStream was tried (c76459c) and failed.
   const body = new Uint8Array(await file.arrayBuffer());
   const url = await uploadTexture(key, body, file.type, file.size);
 
