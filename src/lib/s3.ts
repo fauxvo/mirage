@@ -26,7 +26,7 @@ export function isS3Configured(): boolean {
 
 export async function uploadTexture(
   key: string,
-  body: Buffer | Uint8Array | ReadableStream,
+  body: Buffer | Uint8Array,
   contentType: string,
   contentLength?: number
 ): Promise<string> {

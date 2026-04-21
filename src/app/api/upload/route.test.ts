@@ -171,6 +171,24 @@ describe('POST /api/upload', () => {
     expect(data.error).toContain('x-set-id');
   });
 
+  it('returns 404 when set is not found', async () => {
+    mockFindById.mockResolvedValue(null);
+    const file = makeFile('test.png', 'image/png');
+    const res = await POST(makeRequest(file, { 'x-set-id': 'nonexistent' }));
+    const data = await res.json();
+    expect(res.status).toBe(404);
+    expect(data.error).toContain('not found');
+  });
+
+  it('returns 403 when set belongs to another user', async () => {
+    mockFindById.mockResolvedValue({ id: 'set-1', userId: 'other-user' } as never);
+    const file = makeFile('test.png', 'image/png');
+    const res = await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
+    const data = await res.json();
+    expect(res.status).toBe(403);
+    expect(data.error).toContain('Forbidden');
+  });
+
   it('returns 501 when S3 is not configured', async () => {
     mockIsS3Configured.mockReturnValue(false);
     const file = makeFile('test.png', 'image/png');

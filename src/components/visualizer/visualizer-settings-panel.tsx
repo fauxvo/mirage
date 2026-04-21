@@ -111,10 +111,16 @@ export function VisualizerSettingsPanel({
   const [videoFileNameOverride, setVideoFileNameOverride] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const videoXhrRef = useRef<XMLHttpRequest | null>(null);
+  const uploadSetNameRef = useRef(false);
 
-  // Reset filename override when videoUrl changes (e.g. cue switch)
+  // Reset filename override when videoUrl changes externally (e.g. cue switch).
+  // Skip when the change came from our own upload (uploadSetNameRef flag).
   useEffect(() => {
-    setVideoFileNameOverride(null);
+    if (uploadSetNameRef.current) {
+      uploadSetNameRef.current = false;
+    } else {
+      setVideoFileNameOverride(null);
+    }
   }, [config.videoUrl]);
 
   // Abort in-flight video upload on unmount
@@ -367,13 +373,15 @@ export function VisualizerSettingsPanel({
         setVideoUploading(true);
         setVideoUploadProgress(0);
         const url = await uploadWithProgress(file);
-        onQuickChange({ videoUrl: url });
+        uploadSetNameRef.current = true;
         setVideoFileNameOverride(file.name);
+        onQuickChange({ videoUrl: url });
       } else {
         // Local playback via object URL (won't persist across reloads)
         const objectUrl = URL.createObjectURL(file);
-        onQuickChange({ videoUrl: objectUrl });
+        uploadSetNameRef.current = true;
         setVideoFileNameOverride(file.name);
+        onQuickChange({ videoUrl: objectUrl });
       }
     } catch (err) {
       setVideoError(err instanceof Error ? err.message : 'Failed to upload video');
