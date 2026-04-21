@@ -25,11 +25,14 @@ import { POST } from './route';
 import { requireAuth } from '@/lib/auth/auth-guards';
 import { isS3Configured, uploadTexture } from '@/lib/s3';
 import { setRepository } from '@/db/repositories/set.repository';
+import { cueRepository } from '@/db/repositories/cue.repository';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const mockIsS3Configured = vi.mocked(isS3Configured);
 const mockUploadTexture = vi.mocked(uploadTexture);
 const mockFindById = vi.mocked(setRepository.findById);
+const mockFindBySetIdAndId = vi.mocked(cueRepository.findBySetIdAndId);
+const mockCueUpdate = vi.mocked(cueRepository.update);
 
 const session = { userId: 'user-1', username: 'admin', role: 'admin' as const };
 
@@ -173,5 +176,45 @@ describe('POST /api/upload', () => {
     const file = makeFile('test.png', 'image/png');
     const res = await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
     expect(res.status).toBe(501);
+  });
+
+  it('returns auth error when requireAuth fails', async () => {
+    mockRequireAuth.mockResolvedValue({
+      session: null,
+      error: new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    } as never);
+    const file = makeFile('test.png', 'image/png');
+    const res = await POST(makeRequest(file, { 'x-set-id': 'set-1' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 500-level error when uploadTexture throws', async () => {
+    mockUploadTexture.mockRejectedValue(new Error('S3 connection refused'));
+    const file = makeFile('test.png', 'image/png');
+    await expect(POST(makeRequest(file, { 'x-set-id': 'set-1' }))).rejects.toThrow(
+      'S3 connection refused'
+    );
+  });
+
+  it('updates cue textureUrl when x-cue-id header is present', async () => {
+    const file = makeFile('test.png', 'image/png');
+    mockFindBySetIdAndId.mockResolvedValue({ id: 'cue-1', setId: 'set-1' } as never);
+    const res = await POST(makeRequest(file, { 'x-set-id': 'set-1', 'x-cue-id': 'cue-1' }));
+    expect(res.status).toBe(201);
+    expect(mockFindBySetIdAndId).toHaveBeenCalledWith('set-1', 'cue-1');
+    expect(mockCueUpdate).toHaveBeenCalledWith('cue-1', {
+      textureUrl: 'https://s3.example.com/textures/set-1/abc12345.png',
+    });
+  });
+
+  it('skips cue update when cue is not found', async () => {
+    const file = makeFile('test.png', 'image/png');
+    mockFindBySetIdAndId.mockResolvedValue(null);
+    const res = await POST(makeRequest(file, { 'x-set-id': 'set-1', 'x-cue-id': 'nonexistent' }));
+    expect(res.status).toBe(201);
+    expect(mockCueUpdate).not.toHaveBeenCalled();
   });
 });

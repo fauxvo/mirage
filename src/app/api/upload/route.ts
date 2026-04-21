@@ -6,7 +6,7 @@ import { setRepository } from '@/db/repositories/set.repository';
 import { cueRepository } from '@/db/repositories/cue.repository';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
-/** Map MIME subtypes that don't match file extensions (e.g. video/quicktime → .mov) */
+/** MIME subtypes whose names don't match the actual file extension (e.g. quicktime → .mov) */
 const MIME_EXT: Record<string, string> = {
   quicktime: 'mov',
   'x-matroska': 'mkv',
