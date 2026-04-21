@@ -9,6 +9,7 @@ export class VideoScene {
   private video: HTMLVideoElement;
   private videoTexture: THREE.VideoTexture | null = null;
   private objectUrl: string | null = null;
+  private loadGeneration = 0;
   private config: VisualizerConfig;
   private renderer: THREE.WebGLRenderer | undefined;
   private _sizeVec = new THREE.Vector2();
@@ -39,8 +40,6 @@ export class VideoScene {
     this.mesh.position.z = -2;
     this.scene.add(this.mesh);
 
-    // Listen for video metadata to adjust plane aspect ratio
-    this.video.addEventListener('loadedmetadata', this.handleVideoReady);
     this.video.addEventListener('error', this.handleVideoError);
     window.addEventListener('resize', this.handleResize);
 
@@ -51,11 +50,24 @@ export class VideoScene {
   }
 
   private loadVideo(url: string): void {
+    // Bump generation so stale loadedmetadata callbacks are ignored
+    const gen = ++this.loadGeneration;
+
     // Revoke previous object URL if we were tracking one
     if (this.objectUrl) {
       URL.revokeObjectURL(this.objectUrl);
     }
     this.objectUrl = url.startsWith('blob:') ? url : null;
+
+    this.video.addEventListener(
+      'loadedmetadata',
+      () => {
+        // If loadVideo() was called again since, this event is stale
+        if (gen !== this.loadGeneration) return;
+        this.applyVideoTexture();
+      },
+      { once: true }
+    );
 
     this.video.src = url;
     this.video.load();
@@ -70,18 +82,14 @@ export class VideoScene {
     });
   }
 
-  private handleVideoError = (): void => {
-    const error = this.video.error;
-    console.warn(
-      `[mirage] Video failed to load: ${error?.message ?? 'unknown error'} (code ${error?.code})`
-    );
-  };
-
-  private handleVideoReady = (): void => {
-    // Create VideoTexture from the loaded video
-    if (this.videoTexture) {
-      this.videoTexture.dispose();
+  private applyVideoTexture(): void {
+    // Dispose old texture before reassigning material.map
+    const oldTexture = this.videoTexture;
+    this.material.map = null;
+    if (oldTexture) {
+      oldTexture.dispose();
     }
+
     this.videoTexture = new THREE.VideoTexture(this.video);
     this.videoTexture.colorSpace = THREE.SRGBColorSpace;
     this.videoTexture.minFilter = THREE.LinearFilter;
@@ -92,6 +100,13 @@ export class VideoScene {
     this.material.needsUpdate = true;
 
     this.updatePlaneSize();
+  }
+
+  private handleVideoError = (): void => {
+    const error = this.video.error;
+    console.warn(
+      `[mirage] Video failed to load: ${error?.message ?? 'unknown error'} (code ${error?.code})`
+    );
   };
 
   private handleResize = (): void => {
@@ -146,19 +161,25 @@ export class VideoScene {
           this.videoTexture.dispose();
           this.videoTexture = null;
         }
+        if (this.objectUrl) {
+          URL.revokeObjectURL(this.objectUrl);
+          this.objectUrl = null;
+        }
       }
     }
 
     if (config.sceneParams?.audioEnabled !== undefined) {
-      this.video.muted = !config.sceneParams.audioEnabled;
+      this.video.muted = !Boolean(config.sceneParams.audioEnabled);
     }
 
     this.config = { ...this.config, ...config };
   }
 
   dispose(): void {
+    // Invalidate any pending loadedmetadata callbacks
+    this.loadGeneration++;
+
     window.removeEventListener('resize', this.handleResize);
-    this.video.removeEventListener('loadedmetadata', this.handleVideoReady);
     this.video.removeEventListener('error', this.handleVideoError);
     this.video.pause();
     this.video.removeAttribute('src');

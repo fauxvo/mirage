@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
   const prefix = isVideo ? 'videos' : 'textures';
   const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
 
-  // Use Uint8Array directly to avoid an extra Buffer copy
+  // Uint8Array is required — AWS SDK v3 needs the full body to compute the
+  // SHA-256 signing hash. ReadableStream was tried (c76459c) and failed.
+  // For truly large files, @aws-sdk/lib-storage (multipart upload) would avoid
+  // buffering, but that's a separate enhancement.
   const body = new Uint8Array(await file.arrayBuffer());
   const url = await uploadTexture(key, body, file.type, file.size);
 

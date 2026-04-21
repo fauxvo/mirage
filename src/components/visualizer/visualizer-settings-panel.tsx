@@ -112,11 +112,9 @@ export function VisualizerSettingsPanel({
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Reset filename override when videoUrl changes (e.g. cue switch)
-  const prevVideoUrl = useRef(config.videoUrl);
-  if (config.videoUrl !== prevVideoUrl.current) {
-    prevVideoUrl.current = config.videoUrl;
+  useEffect(() => {
     setVideoFileNameOverride(null);
-  }
+  }, [config.videoUrl]);
 
   // Derive display name: session override > extracted from URL > fallback
   const videoDisplayName = (() => {
@@ -328,7 +326,9 @@ export function VisualizerSettingsPanel({
         }
       });
       xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+      xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
       xhr.open('POST', '/api/upload');
+      xhr.timeout = 15 * 60 * 1000; // 15 minutes for large video uploads
       xhr.setRequestHeader('x-set-id', setId);
       if (activeCueId) xhr.setRequestHeader('x-cue-id', activeCueId);
       xhr.send(formData);
