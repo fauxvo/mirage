@@ -49,3 +49,9 @@ coverage/
 
 # reference screenshots
 *-hero.png
+
+# serena
+.serena/
+
+# AI workflow artifacts
+docs/superpowers/

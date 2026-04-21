@@ -256,6 +256,7 @@ export function buildDefaultConfig(
     depth: defaults.depth,
     colorCycleSpeed: 0.5,
     customTextureUrl: null,
+    videoUrl: null,
     textureScale: 1.0,
     textureOpacity: 1.0,
     textureAnimation: 'none',

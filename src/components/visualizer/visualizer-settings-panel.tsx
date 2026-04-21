@@ -104,6 +104,45 @@ export function VisualizerSettingsPanel({
   const [textureUploading, setTextureUploading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  // User-provided filename from the last upload in this session
+  const [videoFileNameOverride, setVideoFileNameOverride] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const videoXhrRef = useRef<XMLHttpRequest | null>(null);
+  const uploadSetNameRef = useRef(false);
+
+  // Reset filename override when videoUrl changes externally (e.g. cue switch).
+  // Skip when the change came from our own upload (uploadSetNameRef flag).
+  useEffect(() => {
+    if (uploadSetNameRef.current) {
+      uploadSetNameRef.current = false;
+    } else {
+      setVideoFileNameOverride(null);
+    }
+  }, [config.videoUrl]);
+
+  // Abort in-flight video upload on unmount
+  useEffect(() => {
+    return () => {
+      videoXhrRef.current?.abort();
+    };
+  }, []);
+
+  // Derive display name: session override > extracted from URL > fallback
+  const videoDisplayName = (() => {
+    if (videoFileNameOverride && config.videoUrl) return videoFileNameOverride;
+    if (config.videoUrl && !config.videoUrl.startsWith('blob:')) {
+      try {
+        const path = new URL(config.videoUrl, 'https://x').pathname;
+        return path.split('/').pop() ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
   const [showCustomColors, setShowCustomColors] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -269,6 +308,97 @@ export function VisualizerSettingsPanel({
     setTextureError(null);
   };
 
+  const uploadWithProgress = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!setId) {
+        reject(new Error('Set required for cloud upload'));
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      const xhr = new XMLHttpRequest();
+      videoXhrRef.current = xhr;
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          setVideoUploadProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data.data.url);
+          } catch {
+            reject(new Error('Invalid response'));
+          }
+        } else {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            reject(new Error(data.error || 'Upload failed'));
+          } catch {
+            reject(new Error('Upload failed'));
+          }
+        }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+      xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+      xhr.addEventListener('loadend', () => {
+        videoXhrRef.current = null;
+      });
+      xhr.open('POST', '/api/upload');
+      xhr.timeout = 15 * 60 * 1000; // 15 minutes for large video uploads
+      xhr.setRequestHeader('x-set-id', setId);
+      if (activeCueId) xhr.setRequestHeader('x-cue-id', activeCueId);
+      xhr.send(formData);
+    });
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoError(null);
+
+    if (!file.type.startsWith('video/')) {
+      setVideoError('Please select a video file');
+      return;
+    }
+    if (file.size > 250 * 1024 * 1024) {
+      setVideoError('Video must be under 250MB');
+      return;
+    }
+
+    try {
+      if (storageAvailable && setId) {
+        setVideoUploading(true);
+        setVideoUploadProgress(0);
+        const url = await uploadWithProgress(file);
+        uploadSetNameRef.current = true;
+        setVideoFileNameOverride(file.name);
+        onQuickChange({ videoUrl: url });
+      } else {
+        // Local playback via object URL (won't persist across reloads)
+        const objectUrl = URL.createObjectURL(file);
+        uploadSetNameRef.current = true;
+        setVideoFileNameOverride(file.name);
+        onQuickChange({ videoUrl: objectUrl });
+      }
+    } catch (err) {
+      setVideoError(err instanceof Error ? err.message : 'Failed to upload video');
+    } finally {
+      setVideoUploading(false);
+      setVideoUploadProgress(0);
+    }
+
+    e.target.value = '';
+  };
+
+  const handleRemoveVideo = () => {
+    onQuickChange({ videoUrl: null });
+    setVideoError(null);
+    setVideoFileNameOverride(null);
+  };
+
   const handleCopyUrl = async () => {
     if (!setId) return;
     const url = `${window.location.origin}/v/${setId}`;
@@ -328,6 +458,7 @@ export function VisualizerSettingsPanel({
       sceneParams,
       // Preserve texture/pattern
       customTextureUrl: config.customTextureUrl,
+      videoUrl: config.videoUrl,
       textureScale: config.textureScale,
       textureOpacity: config.textureOpacity,
       textureAnimation: config.textureAnimation,
@@ -346,7 +477,7 @@ export function VisualizerSettingsPanel({
   return (
     <div
       className={cn(
-        'absolute top-0 right-0 bottom-0 z-20 w-80',
+        'absolute top-0 right-0 bottom-0 z-20 w-80 max-w-full',
         'bg-black/90 backdrop-blur-xl border-l border-white/10',
         'flex flex-col overflow-hidden',
         'animate-slide-in-right'
@@ -358,14 +489,14 @@ export function VisualizerSettingsPanel({
         <div className="flex items-center gap-1">
           <button
             onClick={() => window.location.reload()}
-            className="p-1 text-emerald-400/70 hover:text-emerald-400 rounded transition-colors"
+            className="p-1 text-white/50 hover:text-white/70 rounded transition-colors"
             title="Refresh visualizer"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={onShowHelp}
-            className="p-1 text-orange-400/70 hover:text-orange-400 rounded transition-colors"
+            className="p-1 text-white/50 hover:text-white/70 rounded transition-colors"
             title="Help"
           >
             <HelpCircle className="w-4 h-4" />
@@ -440,7 +571,7 @@ export function VisualizerSettingsPanel({
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white/50 font-mono truncate">
-                    {typeof window !== 'undefined' ? window.location.origin : ''}/v/{setId}
+                    {globalThis.location?.origin ?? ''}/v/{setId}
                   </div>
                   <button
                     onClick={handleCopyUrl}
@@ -501,7 +632,7 @@ export function VisualizerSettingsPanel({
                               key={scene.id}
                               onClick={() => onQuickChange({ scene: scene.id })}
                               className={cn(
-                                'px-2 py-1.5 rounded-lg text-xs font-medium transition-all text-left',
+                                'px-2 py-2 min-h-[44px] rounded-lg text-xs font-medium transition-all text-left flex items-center',
                                 config.scene === scene.id
                                   ? 'bg-white/20 text-white border border-white/30'
                                   : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-transparent'
@@ -624,14 +755,14 @@ export function VisualizerSettingsPanel({
               <div className="mt-2 flex items-center justify-between">
                 <div>
                   <label className="text-white/50 text-[10px] font-medium">Auto-Cycle Colors</label>
-                  <p className="text-white/25 text-[9px] mt-0.5">
+                  <p className="text-white/35 text-[9px] mt-0.5">
                     {colorCycleEnabled ? 'Cycling every 8s' : 'Rotate through all presets'}
                   </p>
                 </div>
                 <button
                   onClick={() => onToggleColorCycle(!colorCycleEnabled)}
                   className={cn(
-                    'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                    'w-10 h-5 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-1 focus-visible:ring-offset-black',
                     colorCycleEnabled ? 'bg-white/30' : 'bg-white/10'
                   )}
                 >
@@ -659,7 +790,7 @@ export function VisualizerSettingsPanel({
                 <button
                   onClick={() => onToggleAudioInput(!audioInputEnabled)}
                   className={cn(
-                    'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                    'w-10 h-5 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-1 focus-visible:ring-offset-black',
                     audioInputEnabled ? 'bg-white/30' : 'bg-white/10'
                   )}
                 >
@@ -821,7 +952,7 @@ export function VisualizerSettingsPanel({
                         <button
                           onClick={() => onQuickChange({ [param.key]: !currentValue })}
                           className={cn(
-                            'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                            'w-10 h-5 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-1 focus-visible:ring-offset-black',
                             currentValue ? 'bg-white/30' : 'bg-white/10'
                           )}
                         >
@@ -873,7 +1004,7 @@ export function VisualizerSettingsPanel({
                           })
                         }
                         className={cn(
-                          'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                          'w-10 h-5 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-1 focus-visible:ring-offset-black',
                           currentValue ? 'bg-white/30' : 'bg-white/10'
                         )}
                       >
@@ -922,69 +1053,145 @@ export function VisualizerSettingsPanel({
               return null;
             })}
 
-            {/* Custom Texture */}
-            <section>
-              <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
-                Custom Texture
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleTextureUpload}
-                className="hidden"
-              />
-              {config.customTextureUrl ? (
-                <div className="space-y-2">
-                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={config.customTextureUrl}
-                      alt="Custom texture"
-                      className="w-full h-full object-contain"
-                    />
+            {config.scene === 'video' ? (
+              <section>
+                <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
+                  Video
+                </label>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                {config.videoUrl ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex-1 text-white/70 text-xs truncate">
+                        {videoDisplayName ?? 'Video loaded'}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => videoInputRef.current?.click()}
+                        disabled={videoUploading}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        {videoUploading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {videoUploadProgress > 0 ? `${videoUploadProgress}%` : '...'}
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3 h-3" />
+                            Replace
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleRemoveVideo}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Upload className="w-3 h-3" />
-                      Replace
-                    </button>
-                    <button
-                      onClick={handleRemoveTexture}
-                      className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Remove
-                    </button>
+                ) : (
+                  <button
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={videoUploading}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {videoUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {videoUploadProgress > 0
+                          ? `Uploading ${videoUploadProgress}%`
+                          : 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload Video
+                      </>
+                    )}
+                  </button>
+                )}
+                {videoError && <p className="mt-1 text-red-400 text-[10px]">{videoError}</p>}
+                {!storageAvailable && config.videoUrl?.startsWith('blob:') && (
+                  <p className="mt-1 text-yellow-400/70 text-[10px]">
+                    Local playback only — S3 required for persistent video storage
+                  </p>
+                )}
+              </section>
+            ) : (
+              <section>
+                {/* Custom Texture */}
+                <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
+                  Custom Texture
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleTextureUpload}
+                  className="hidden"
+                />
+                {config.customTextureUrl ? (
+                  <div className="space-y-2">
+                    <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={config.customTextureUrl}
+                        alt="Custom texture"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleRemoveTexture}
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/30 rounded-lg text-white/70 hover:text-red-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={textureUploading}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {textureUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Upload Image (logo, photo, etc.)
-                    </>
-                  )}
-                </button>
-              )}
-              {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
-              <p className="mt-1 text-white/30 text-[10px]">
-                Applied as texture across all scenes. Large images auto-optimized.
-              </p>
-            </section>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={textureUploading}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 hover:border-white/30 rounded-lg text-white/50 hover:text-white/70 text-xs font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {textureUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload Image (logo, photo, etc.)
+                      </>
+                    )}
+                  </button>
+                )}
+                {textureError && <p className="mt-1 text-red-400 text-[10px]">{textureError}</p>}
+                <p className="mt-1 text-white/30 text-[10px]">
+                  Applied as texture across all scenes. Large images auto-optimized.
+                </p>
+              </section>
+            )}
 
             {/* Texture controls — only features the active scene declares */}
             {config.customTextureUrl && (
@@ -1053,7 +1260,7 @@ export function VisualizerSettingsPanel({
 
             {/* Intensity Multiplier */}
             <section>
-              <h4 className="text-[11px] font-semibold text-teal-200/70 uppercase tracking-wider mb-2">
+              <h4 className="text-[11px] font-semibold text-white/70 uppercase tracking-wider mb-2">
                 Intensity
               </h4>
               <div className="flex gap-1.5">

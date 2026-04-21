@@ -6,6 +6,13 @@ import { setRepository } from '@/db/repositories/set.repository';
 import { cueRepository } from '@/db/repositories/cue.repository';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 
+/** MIME subtypes whose names don't match the actual file extension (e.g. quicktime → .mov) */
+const MIME_EXT: Record<string, string> = {
+  quicktime: 'mov',
+  'x-matroska': 'mkv',
+  'x-msvideo': 'avi',
+};
+
 export async function POST(request: NextRequest) {
   const { session, error } = await requireAuth();
   if (error) return error;
@@ -33,19 +40,31 @@ export async function POST(request: NextRequest) {
     return errorResponse('No file provided', 400);
   }
 
-  if (!file.type.startsWith('image/')) {
-    return errorResponse('File must be an image', 400);
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+
+  if (!isImage && !isVideo) {
+    return errorResponse('File must be an image or video', 400);
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return errorResponse('File must be under 10MB', 400);
+  const maxSize = isVideo ? 250 * 1024 * 1024 : 10 * 1024 * 1024;
+  const maxLabel = isVideo ? '250MB' : '10MB';
+
+  if (file.size > maxSize) {
+    return errorResponse(`File must be under ${maxLabel}`, 400);
   }
 
-  const ext = file.type.split('/')[1] || 'png';
-  const key = `textures/${setId}/${nanoid(8)}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const rawExt = file.type.split('/')[1] || (isVideo ? 'mp4' : 'png');
+  const ext = MIME_EXT[rawExt] ?? rawExt;
+  const prefix = isVideo ? 'videos' : 'textures';
+  const key = `${prefix}/${setId}/${nanoid(8)}.${ext}`;
 
-  const url = await uploadTexture(key, buffer, file.type);
+  // TODO: Use @aws-sdk/lib-storage multipart upload to avoid buffering large
+  // files (up to 250MB) in memory. Uint8Array is required for now because
+  // AWS SDK v3 needs the full body to compute the SHA-256 signing hash.
+  // ReadableStream was tried (c76459c) and failed.
+  const body = new Uint8Array(await file.arrayBuffer());
+  const url = await uploadTexture(key, body, file.type, file.size);
 
   // Optionally persist textureUrl to a specific cue
   const cueId = request.headers.get('x-cue-id');
